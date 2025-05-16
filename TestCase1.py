@@ -3,25 +3,8 @@ import unittest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
-import random
-from faker import Faker
-
-fake = Faker()
 
 CSV_FILE = "automate.csv"
-ROW_COUNT = 5  # how many test rows to generate
-
-# Step 1: Generate new CSV with fake data
-def generate_fake_csv():
-    fieldnames = ['username', 'password']
-    with open(CSV_FILE, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for _ in range(ROW_COUNT):
-            writer.writerow({
-                'username': fake.user_name(),
-                'password': fake.password(length=10, special_chars=True, digits=True, upper_case=True, lower_case=True),
-            })
 
 # Shared base class
 class BaseLoginTest(unittest.TestCase):
@@ -70,8 +53,7 @@ class DynamicLoginTests(BaseLoginTest):
 
 # ==== MAIN ENTRY ====
 if __name__ == "__main__":
-    generate_fake_csv()  # Step 1: Refresh CSV data
-    load_tests()         # Step 2: Load tests dynamically
+    load_tests()         
 
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(DynamicLoginTests)
     runner = unittest.TextTestRunner(verbosity=2)
