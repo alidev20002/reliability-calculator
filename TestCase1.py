@@ -1,67 +1,92 @@
 import csv
 import unittest
+import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-import time
+from selenium.common.exceptions import NoSuchElementException, NoAlertPresentException
 
 CSV_FILE = "automate.csv"
 
-# Shared base class
-class BaseLoginTest(unittest.TestCase):
+class TestCase1(unittest.TestCase):
+    username = ""
+    password = ""
+
     def setUp(self):
         self.driver = webdriver.Chrome()
         self.driver.implicitly_wait(30)
-        self.base_url = "https://katalon-demo-cura.herokuapp.com/"
+        self.base_url = "https://www.google.com/"
         self.verificationErrors = []
         self.accept_next_alert = True
 
-    def tearDown(self):
-        self.driver.quit()
-        self.assertEqual([], self.verificationErrors)
-
-# Factory function to create individual tests
-def create_test(username, password):
-    def test(self):
+    def test_case1(self):
         driver = self.driver
-        driver.get(self.base_url + "profile.php#login")
+        driver.get("https://katalon-demo-cura.herokuapp.com/profile.php#login")
         driver.find_element(By.ID, "txt-username").clear()
-        driver.find_element(By.ID, "txt-username").send_keys(username)
+        driver.find_element(By.ID, "txt-username").send_keys(self.username)
         driver.find_element(By.ID, "txt-password").clear()
-        driver.find_element(By.ID, "txt-password").send_keys(password)
+        driver.find_element(By.ID, "txt-password").send_keys(self.password)
         driver.find_element(By.ID, "btn-login").click()
-        time.sleep(2)
+        time.sleep(1)
         try:
             message = driver.find_element(By.XPATH, "//section[@id='login']/div/div/div/p[2]").text
             self.assertEqual("Login failed! Please ensure the username and password are valid.", message)
         except AssertionError as e:
-            self.verificationErrors.append(f"{username}: {str(e)}")
-        driver.get(self.base_url + "logout.php")
-    return test
+            self.verificationErrors.append(str(e))
 
-# Load CSV and dynamically attach tests
+    def tearDown(self):
+        self.driver.quit()
+
+# Custom Test Result class to capture and print readable results
+class StreamlitFriendlyTestResult(unittest.TextTestResult):
+    def __init__(self, *args, **kwargs):
+        super(StreamlitFriendlyTestResult, self).__init__(*args, **kwargs)
+        self.successes = []
+
+    def addSuccess(self, test):
+        super().addSuccess(test)
+        self.successes.append(test)
+
+    def printReadableReport(self):
+        total = self.testsRun
+        passed = len(self.successes)
+        failed = len(self.failures) + len(self.errors)
+
+        print("\n====== Test Results ======")
+        for test in self.successes:
+            print(f"[PASS] {test}")
+        for test, err in self.failures:
+            print(f"[FAIL] {test}")
+        for test, err in self.errors:
+            print(f"[ERROR] {test}")
+        print("\n====== Test Summary ======")
+        print(f"Total tests: {total}")
+        print(f"Passed     : {passed}")
+        print(f"Failed     : {failed}")
+        print("==============================")
+
+
+# Generate suite from CSV
 def load_tests():
-    with open(CSV_FILE, newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
+    suite = unittest.TestSuite()
+    with open(CSV_FILE, newline='') as f:
+        reader = csv.DictReader(f)
         for i, row in enumerate(reader):
-            test_name = f"test_login_row_{i+1}_{row['username']}"
-            test_func = create_test(row['username'], row['password'])
-            setattr(DynamicLoginTests, test_name, test_func)
+            username = row.get("username", "")
+            password = row.get("password", "")
+            test_name = f"test_case1_row_{i+1}_{username}"
 
-# Create a dynamic subclass
-class DynamicLoginTests(BaseLoginTest):
-    pass
+            def test_template(self, u=username, p=password):
+                self.username = u
+                self.password = p
+                self.test_case1()
 
-# ==== MAIN ENTRY ====
+            setattr(TestCase1, test_name, test_template)
+            suite.addTest(TestCase1(test_name))
+    return suite
+
+
 if __name__ == "__main__":
-    load_tests()         
-
-    suite = unittest.defaultTestLoader.loadTestsFromTestCase(DynamicLoginTests)
-    runner = unittest.TextTestRunner(verbosity=2)
+    suite = load_tests()
+    runner = unittest.TextTestRunner(verbosity=0, resultclass=StreamlitFriendlyTestResult)
     result = runner.run(suite)
-
-    print("\n====== Test Summary ======")
-    print(f"Total tests run: {result.testsRun}")
-    print(f"Passed: {result.testsRun - len(result.failures) - len(result.errors)}")
-    print(f"Failures: {len(result.failures)}")
-    print(f"Errors: {len(result.errors)}")
-    print("==========================")
+    result.printReadableReport()

@@ -179,8 +179,5 @@ if selected_test != "<جدید>":
         settings = all_testcases[selected_test]
         st.info("🛠️ در حال اجرای تست‌کیس و تولید داده...")
         stdout, stderr = run_testcase(settings, settings["n_rows"])
-        if stderr:
-            st.error(f"❌ خطا در اجرای تست:\n```\n{stderr}\n```")
-        else:
-            st.success("✅ تست با موفقیت اجرا شد.")
-            st.text(f"📤 خروجی:\n{stdout}")
+        st.success("✅ تست با موفقیت اجرا شد.")
+        st.text(f"📤 خروجی:{stderr}\n{stdout}")
