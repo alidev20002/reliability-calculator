@@ -23,6 +23,7 @@ def load_all_testcases():
 def save_all_testcases(data):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+        st.rerun()
 
 
 def generate_data(fields, n_rows):
