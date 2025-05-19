@@ -82,100 +82,109 @@ def run_testcase(settings, n_rows):
     except Exception as e:
         return "", str(e)
 
+st.set_page_config(page_title="سیستم مدیریت و اجرای آزمون", layout="wide")
+st.markdown("<h1 style='text-align: center;'>🧪 سیستم مدیریت و اجرای آزمون</h1>", unsafe_allow_html=True)
 
-# Load all testcases
-all_testcases = load_all_testcases()
+tab1, tab2 = st.tabs(["مدیریت آزمون‌ها و تولید داده", "اجرای آزمون‌ها"])
 
-st.title("🧪 سیستم مدیریت و اجرای تست‌کیس")
 
-# Sidebar: Select or create test case
-st.sidebar.title("🗂️ مدیریت تست‌کیس‌ها")
-test_names = list(all_testcases.keys())
-selected_test = st.sidebar.selectbox("🔽 انتخاب یا ساخت تست‌کیس", ["<جدید>"] + test_names)
+with tab1:
+    # Load all testcases
+    all_testcases = load_all_testcases()
 
-if selected_test == "<جدید>":
-    new_test_name = st.sidebar.text_input("📝 نام تست‌کیس جدید")
-    test_data = {}
-else:
-    new_test_name = selected_test
-    test_data = all_testcases[selected_test]
+    st.sidebar.title("🗂️ مدیریت سناریوهای آزمون")
+    test_names = list(all_testcases.keys())
+    selected_test = st.sidebar.selectbox("🔽 انتخاب یا ساخت سناریو آزمون", ["سناریو جدید"] + test_names)
 
-# Main Inputs
-testcase_dir = st.text_input("📂 مسیر دایرکتوری TestCase", value=test_data.get("testcase_dir", ""))
-testcase_name = st.text_input("📄 نام فایل TestCase", value=test_data.get("testcase_name", ""))
-file_name = st.text_input("🧾 نام فایل CSV", value=test_data.get("csv_name", "test_data.csv"))
-interval_seconds = st.number_input("⏲️ دوره تناوب اجرای تست (ثانیه)", min_value=1, max_value=86400,
-                                   value=test_data.get("interval", 60))
-n_rows = st.number_input("📊 تعداد ردیف داده", min_value=1, value=test_data.get("n_rows", 10))
-
-# Define fields
-fields = []
-n_fields = st.number_input("تعداد فیلدها", min_value=1, value=1)
-
-for i in range(n_fields):
-    st.markdown(f"### ⚙️ تنظیمات فیلد {i+1}")
-    col1, col2 = st.columns(2)
-    with col1:
-        field_name = st.text_input(f"نام فیلد {i+1}", key=f"name_{i}")
-    with col2:
-        field_type = st.selectbox(f"نوع فیلد {i+1}", ["عددی", "متنی", "چند گزینه‌ای", "تاریخ"], key=f"type_{i}")
-
-    config = {"name": field_name, "type": field_type}
-
-    if field_type == "عددی":
-        number_kind = st.selectbox("نوع عدد", ["صحیح", "اعشاری"], key=f"num_kind_{i}")
-        config["number_kind"] = number_kind
-
-        dist = st.selectbox(f"توزیع برای فیلد {field_name}", ["یكنواخت", "نرمال", "پواسون"], key=f"dist_{i}")
-        config["distribution"] = dist
-
-        if dist == "یكنواخت":
-            config["low"] = st.number_input("حداقل مقدار", key=f"low_{i}", value=0)
-            config["high"] = st.number_input("حداکثر مقدار", key=f"high_{i}", value=100)
-        elif dist == "نرمال":
-            config["mean"] = st.number_input("میانگین", key=f"mean_{i}", value=0)
-            config["std"] = st.number_input("انحراف معیار", key=f"std_{i}", value=1)
-        elif dist == "پواسون":
-            config["lam"] = st.number_input("لامبدا (میانگین)", key=f"lam_{i}", value=5)
-
-    elif field_type == "متنی":
-        config["text_type"] = st.selectbox("نوع متن", ["نام", "پسورد", "ایمیل", "آدرس", "جمله تصادفی"], key=f"text_{i}")
-
-    elif field_type == "چند گزینه‌ای":
-        options = st.text_input("گزینه‌ها را با کاما جدا کنید (مثلاً: پایین,متوسط,بالا)", key=f"options_{i}")
-        config["options"] = [opt.strip() for opt in options.split(",") if opt.strip()]
-        config["prob"] = st.text_input("احتمال گزینه‌ها (مثلاً: 0.2,0.5,0.3) یا خالی برای برابر", key=f"prob_{i}")
-
-    elif field_type == "تاریخ":
-        config["start_date"] = st.date_input("تاریخ شروع", key=f"start_{i}")
-        config["end_date"] = st.date_input("تاریخ پایان", key=f"end_{i}")
-
-    fields.append(config)
-
-# Save test case
-if st.button("💾 ذخیره این تست‌کیس"):
-    if not new_test_name:
-        st.error("⚠️ لطفاً نام تست‌کیس را وارد کنید.")
+    if selected_test == "سناریو جدید":
+        new_test_name = st.sidebar.text_input("📝 نام سناریو جدید")
+        test_data = {}
     else:
-        all_testcases[new_test_name] = {
-            "testcase_dir": testcase_dir,
-            "testcase_name": testcase_name,
-            "csv_name": file_name,
-            "interval": interval_seconds,
-            "n_rows": n_rows,
-            "fields": fields
-        }
-        save_all_testcases(all_testcases)
-        st.success(f"✅ تست‌کیس '{new_test_name}' ذخیره شد.")
+        new_test_name = selected_test
+        test_data = all_testcases[selected_test]
 
-# Show list of test cases
-st.sidebar.markdown("### 📋 لیست تست‌کیس‌ها")
-for name in all_testcases:
-    st.sidebar.markdown(f"- **{name}**: {all_testcases[name]['csv_name']}")
+    # Main Inputs
+    testcase_dir = st.text_input("📂 مسیر دایرکتوری سناریو آزمون", value=test_data.get("testcase_dir", ""))
+    testcase_name = st.text_input("📄 نام فایل اسکریپت آزمون", value=test_data.get("testcase_name", ""))
+    file_name = st.text_input("🧾 نام فایل CSV", value=test_data.get("csv_name", "test_data.csv"))
+    interval_seconds = st.number_input("⏲️ دوره تناوب اجرای تست (ثانیه)", min_value=1, max_value=86400,
+                                    value=test_data.get("interval", 60))
+    n_rows = st.number_input("📊 تعداد ردیف داده", min_value=1, value=test_data.get("n_rows", 10))
+    percent = st.number_input("ضریب اهمیت (درصد)", min_value=0, max_value=100, step=1)
 
-# Run selected test case
-if selected_test != "<جدید>":
-    if st.button("🚀 اجرای تست‌کیس"):
+    # Define fields
+    fields = []
+    n_fields = st.number_input("تعداد فیلدها", min_value=1, value=1)
+
+    for i in range(n_fields):
+        st.markdown(f"### ⚙️ تنظیمات فیلد {i+1}")
+        col1, col2 = st.columns(2)
+        with col1:
+            field_name = st.text_input(f"نام فیلد {i+1}", key=f"name_{i}")
+        with col2:
+            field_type = st.selectbox(f"نوع فیلد {i+1}", ["عددی", "متنی", "چند گزینه‌ای", "تاریخ"], key=f"type_{i}")
+
+        config = {"name": field_name, "type": field_type}
+
+        if field_type == "عددی":
+            number_kind = st.selectbox("نوع عدد", ["صحیح", "اعشاری"], key=f"num_kind_{i}")
+            config["number_kind"] = number_kind
+
+            dist = st.selectbox(f"توزیع برای فیلد {field_name}", ["یكنواخت", "نرمال", "پواسون"], key=f"dist_{i}")
+            config["distribution"] = dist
+
+            if dist == "یكنواخت":
+                config["low"] = st.number_input("حداقل مقدار", key=f"low_{i}", value=0)
+                config["high"] = st.number_input("حداکثر مقدار", key=f"high_{i}", value=100)
+            elif dist == "نرمال":
+                config["mean"] = st.number_input("میانگین", key=f"mean_{i}", value=0)
+                config["std"] = st.number_input("انحراف معیار", key=f"std_{i}", value=1)
+            elif dist == "پواسون":
+                config["lam"] = st.number_input("لامبدا (میانگین)", key=f"lam_{i}", value=5)
+
+        elif field_type == "متنی":
+            config["text_type"] = st.selectbox("نوع متن", ["نام", "پسورد", "ایمیل", "آدرس", "جمله تصادفی"], key=f"text_{i}")
+
+        elif field_type == "چند گزینه‌ای":
+            options = st.text_input("گزینه‌ها را با کاما جدا کنید (مثلاً: پایین,متوسط,بالا)", key=f"options_{i}")
+            config["options"] = [opt.strip() for opt in options.split(",") if opt.strip()]
+            config["prob"] = st.text_input("احتمال گزینه‌ها (مثلاً: 0.2,0.5,0.3) یا خالی برای برابر", key=f"prob_{i}")
+
+        elif field_type == "تاریخ":
+            config["start_date"] = st.date_input("تاریخ شروع", key=f"start_{i}")
+            config["end_date"] = st.date_input("تاریخ پایان", key=f"end_{i}")
+
+        fields.append(config)
+
+    # Save test case
+    if st.button("💾 ذخیره این سناریو آزمون"):
+        if not new_test_name:
+            st.error("⚠️ لطفاً نام سناریو آزمون را وارد کنید.")
+        else:
+            all_testcases[new_test_name] = {
+                "testcase_dir": testcase_dir,
+                "testcase_name": testcase_name,
+                "csv_name": file_name,
+                "interval": interval_seconds,
+                "percent": percent,
+                "n_rows": n_rows,
+                "fields": fields
+            }
+            save_all_testcases(all_testcases)
+            st.success(f"✅ سناریو '{new_test_name}' ذخیره شد.")
+
+    # Show list of test cases
+    st.sidebar.markdown("### 📋 لیست سناریوها")
+    st.sidebar.markdown("برای حذف هر سناریو بر روی آن کلیک کنید")
+    for name in all_testcases:
+         if st.sidebar.button(f"- **{name}**   ---  {all_testcases[name]['percent']}"):
+             all_testcases.pop(name, None)
+             save_all_testcases(all_testcases)
+
+
+with tab2:
+    input_rate = st.number_input("تعداد درخواست‌ها به سیستم در یک ساعت", min_value=1, max_value=1000, step=1)
+    if st.button("اجرای آزمون‌ها"):
         settings = all_testcases[selected_test]
         st.info("🛠️ در حال اجرای تست‌کیس و تولید داده...")
         stdout, stderr = run_testcase(settings, settings["n_rows"])
