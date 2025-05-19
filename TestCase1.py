@@ -1,11 +1,8 @@
-import csv
 import unittest
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException, NoAlertPresentException
-
-CSV_FILE = "automate.csv"
+import os
 
 class TestCase1(unittest.TestCase):
     username = ""
@@ -17,6 +14,8 @@ class TestCase1(unittest.TestCase):
         self.base_url = "https://www.google.com/"
         self.verificationErrors = []
         self.accept_next_alert = True
+        self.username = os.environ.get("USERNAME", "")
+        self.password = os.environ.get("PASSWORD", "")
 
     def test_case1(self):
         driver = self.driver
@@ -36,57 +35,29 @@ class TestCase1(unittest.TestCase):
     def tearDown(self):
         self.driver.quit()
 
-# Custom Test Result class to capture and print readable results
-class StreamlitFriendlyTestResult(unittest.TextTestResult):
-    def __init__(self, *args, **kwargs):
-        super(StreamlitFriendlyTestResult, self).__init__(*args, **kwargs)
-        self.successes = []
-
-    def addSuccess(self, test):
-        super().addSuccess(test)
-        self.successes.append(test)
-
-    def printReadableReport(self):
-        total = self.testsRun
-        passed = len(self.successes)
-        failed = len(self.failures) + len(self.errors)
-
-        print("\n====== Test Results ======")
-        for test in self.successes:
-            print(f"[PASS] {test}")
-        for test, err in self.failures:
-            print(f"[FAIL] {test}")
-        for test, err in self.errors:
-            print(f"[ERROR] {test}")
-        print("\n====== Test Summary ======")
-        print(f"Total tests: {total}")
-        print(f"Passed     : {passed}")
-        print(f"Failed     : {failed}")
-        print("==============================")
-
-
 # Generate suite from CSV
 def load_tests():
     suite = unittest.TestSuite()
-    with open(CSV_FILE, newline='') as f:
-        reader = csv.DictReader(f)
-        for i, row in enumerate(reader):
-            username = row.get("username", "")
-            password = row.get("password", "")
-            test_name = f"test_case1_row_{i+1}_{username}"
 
-            def test_template(self, u=username, p=password):
-                self.username = u
-                self.password = p
-                self.test_case1()
+    # with open(CSV_FILE, newline='') as f:
+    #     reader = csv.DictReader(f)
+    #     for i, row in enumerate(reader):
+    #         username = row.get("username", "")
+    #         password = row.get("password", "")
+    #         test_name = f"test_case1_row_{i+1}_{username}"
 
-            setattr(TestCase1, test_name, test_template)
-            suite.addTest(TestCase1(test_name))
-    return suite
+    #         def test_template(self, u=username, p=password):
+    #             self.username = u
+    #             self.password = p
+    #             self.test_case1()
+
+    #         setattr(TestCase1, test_name, test_template)
+    #         suite.addTest(TestCase1(test_name))
+    # return suite
 
 
 if __name__ == "__main__":
-    suite = load_tests()
-    runner = unittest.TextTestRunner(verbosity=0, resultclass=StreamlitFriendlyTestResult)
-    result = runner.run(suite)
-    result.printReadableReport()
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromTestCase(TestCase1)
+    result = unittest.TextTestRunner(stream=open(os.devnull, 'w')).run(suite)
+    print("pass" if result.wasSuccessful() else "fail")
