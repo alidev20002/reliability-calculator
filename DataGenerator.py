@@ -2,7 +2,7 @@ import os
 import json
 import subprocess
 from datetime import datetime, timedelta
-
+import math
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -70,18 +70,20 @@ def generate_data(fields, n_rows):
     return df
 
 
-def run_testcase(settings, n_rows):
-    df = generate_data(settings["fields"], n_rows)
-    csv_path = os.path.join(settings["testcase_dir"], settings["csv_name"])
-    df.to_csv(csv_path, index=False)
-    try:
-        result = subprocess.run(
-            ["python", os.path.join(settings["testcase_dir"], settings["testcase_name"])],
-            capture_output=True, text=True, timeout=300
-        )
-        return result.stdout, result.stderr
-    except Exception as e:
-        return "", str(e)
+def run_testcase(tests, settings):
+    for test in tests:
+        n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
+        df = generate_data(tests[test]["fields"], math.ceil(n_rows))
+        csv_path = os.path.join(tests[test]["testcase_dir"], tests[test]["csv_name"])
+        df.to_csv(csv_path, index=False)
+        try:
+            result = subprocess.run(
+                ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
+                capture_output=True, text=True, timeout=300
+            )
+            return result.stdout, result.stderr
+        except Exception as e:
+            return "", str(e)
 
 st.set_page_config(page_title="سیستم مدیریت و اجرای آزمون", layout="wide")
 st.markdown("<h1 style='text-align: center;'>🧪 سیستم مدیریت و اجرای آزمون</h1>", unsafe_allow_html=True)
@@ -185,9 +187,15 @@ with tab1:
 
 with tab2:
     input_rate = st.number_input("تعداد درخواست‌ها به سیستم در یک ساعت", min_value=1, max_value=1000, step=1)
+    testers = st.number_input("تعداد آزمونگرهای سیستم", min_value=1, max_value=10, step=1)
+    test_duration = st.number_input("تعداد ساعات تست", min_value=1, max_value=24)
+    total_number_of_tests = test_duration * input_rate
+    settings = {
+        'total_number_of_tests': total_number_of_tests,
+        'testers': testers
+    }
     if st.button("اجرای آزمون‌ها"):
-        settings = all_testcases[selected_test]
-        st.info("🛠️ در حال اجرای تست‌کیس و تولید داده...")
-        stdout, stderr = run_testcase(settings, settings["n_rows"])
+        st.info("🛠️ در حال اجرای آزمون‌ها و تولید داده...")
+        stdout, stderr = run_testcase(all_testcases, settings)
         st.success("✅ تست با موفقیت اجرا شد.")
         st.text(f"📤 خروجی:{stderr}\n{stdout}")
