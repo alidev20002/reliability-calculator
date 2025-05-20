@@ -69,33 +69,51 @@ def generate_data(fields, n_rows):
                                  for _ in range(n_rows)]
     return df
 
+def start_tester_test(tests, settings):
+    number_of_tests_before_first_failure = 0
+
+    for test in tests:
+        n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
+        df = generate_data(tests[test]["fields"], math.ceil(n_rows))
+        df['result'] = ''
+        csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(i+1) + '.csv'
+        csv_path = os.path.join(tests[test]["testcase_dir"], csv_name)
+        df.to_csv(csv_path, index=False)
+
+        for idx, row in df.iterrows():
+            env = os.environ.copy()
+            env.update(row.dropna().astype(str).to_dict())
+            try:
+                result = subprocess.run(
+                    ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
+                    env=env,
+                    capture_output=True,
+                    text=True, timeout=300
+                )
+                output = result.stdout.strip().splitlines()
+                outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+
+                df.at[idx, "result"] = outcome
+                df.to_csv(csv_path, index=False)
+
+                number_of_tests_before_first_failure += 1
+
+                if outcome == 'fail':
+                    return number_of_tests_before_first_failure, True
+            except Exception as e:
+                return "", str(e)
+    return number_of_tests_before_first_failure, False
 
 def run_testcase(tests, settings):
     number_of_testers = settings['number_of_testers']
+    number_of_failures = 0
+    total_number_of_tests_executed = 0
     for i in range(number_of_testers):
-        for test in tests:
-            n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
-            df = generate_data(tests[test]["fields"], math.ceil(n_rows))
-            df['result'] = ''
-            csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(i+1) + '.csv'
-            csv_path = os.path.join(tests[test]["testcase_dir"], csv_name)
-            df.to_csv(csv_path, index=False)
-            for idx, row in df.iterrows():
-                env = os.environ.copy()
-                env.update(row.dropna().astype(str).to_dict())
-                try:
-                    result = subprocess.run(
-                        ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
-                        env=env,
-                        capture_output=True,
-                        text=True, timeout=300
-                    )
-                    output = result.stdout.strip().splitlines()
-                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
-                    df.at[idx, "result"] = outcome
-                    df.to_csv(csv_path, index=False)
-                except Exception as e:
-                    return "", str(e)
+        number_of_tests, isFailed = start_tester_test(tests, settings)
+        total_number_of_tests_executed += number_of_tests
+        if isFailed:
+            number_of_failures += 1
+        
 
 st.set_page_config(page_title="سیستم مدیریت و اجرای آزمون", layout="wide")
 st.markdown("<h1 style='text-align: center;'>🧪 سیستم مدیریت و اجرای آزمون</h1>", unsafe_allow_html=True)
@@ -197,7 +215,8 @@ with tab2:
     total_number_of_tests = test_duration * input_rate
     settings = {
         'total_number_of_tests': total_number_of_tests,
-        'number_of_testers': number_of_testers
+        'number_of_testers': number_of_testers,
+        'input_rate': input_rate
     }
     if st.button("اجرای آزمون‌ها"):
         st.info("🛠️ در حال اجرای آزمون‌ها و تولید داده...")
