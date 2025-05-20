@@ -71,19 +71,31 @@ def generate_data(fields, n_rows):
 
 
 def run_testcase(tests, settings):
-    for test in tests:
-        n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
-        df = generate_data(tests[test]["fields"], math.ceil(n_rows))
-        csv_path = os.path.join(tests[test]["testcase_dir"], tests[test]["csv_name"])
-        df.to_csv(csv_path, index=False)
-        try:
-            result = subprocess.run(
-                ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
-                capture_output=True, text=True, timeout=300
-            )
-            return result.stdout, result.stderr
-        except Exception as e:
-            return "", str(e)
+    number_of_testers = settings['number_of_testers']
+    for i in range(number_of_testers):
+        for test in tests:
+            n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
+            df = generate_data(tests[test]["fields"], math.ceil(n_rows))
+            df['result'] = ''
+            csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(i+1) + '.csv'
+            csv_path = os.path.join(tests[test]["testcase_dir"], csv_name)
+            df.to_csv(csv_path, index=False)
+            for idx, row in df.iterrows():
+                env = os.environ.copy()
+                env.update(row.dropna().astype(str).to_dict())
+                try:
+                    result = subprocess.run(
+                        ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
+                        env=env,
+                        capture_output=True,
+                        text=True, timeout=300
+                    )
+                    output = result.stdout.strip().splitlines()
+                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+                    df.at[idx, "result"] = outcome
+                    df.to_csv(csv_path, index=False)
+                except Exception as e:
+                    return "", str(e)
 
 st.set_page_config(page_title="سیستم مدیریت و اجرای آزمون", layout="wide")
 st.markdown("<h1 style='text-align: center;'>🧪 سیستم مدیریت و اجرای آزمون</h1>", unsafe_allow_html=True)
@@ -109,10 +121,6 @@ with tab1:
     # Main Inputs
     testcase_dir = st.text_input("📂 مسیر دایرکتوری سناریو آزمون", value=test_data.get("testcase_dir", ""))
     testcase_name = st.text_input("📄 نام فایل اسکریپت آزمون", value=test_data.get("testcase_name", ""))
-    file_name = st.text_input("🧾 نام فایل CSV", value=test_data.get("csv_name", "test_data.csv"))
-    interval_seconds = st.number_input("⏲️ دوره تناوب اجرای تست (ثانیه)", min_value=1, max_value=86400,
-                                    value=test_data.get("interval", 60))
-    n_rows = st.number_input("📊 تعداد ردیف داده", min_value=1, value=test_data.get("n_rows", 10))
     percent = st.number_input("ضریب اهمیت (درصد)", min_value=0, max_value=100, step=1)
 
     # Define fields
@@ -167,10 +175,7 @@ with tab1:
             all_testcases[new_test_name] = {
                 "testcase_dir": testcase_dir,
                 "testcase_name": testcase_name,
-                "csv_name": file_name,
-                "interval": interval_seconds,
                 "percent": percent,
-                "n_rows": n_rows,
                 "fields": fields
             }
             save_all_testcases(all_testcases)
@@ -187,15 +192,14 @@ with tab1:
 
 with tab2:
     input_rate = st.number_input("تعداد درخواست‌ها به سیستم در یک ساعت", min_value=1, max_value=1000, step=1)
-    testers = st.number_input("تعداد آزمونگرهای سیستم", min_value=1, max_value=10, step=1)
+    number_of_testers = st.number_input("تعداد آزمونگرهای سیستم", min_value=1, max_value=10, step=1)
     test_duration = st.number_input("تعداد ساعات تست", min_value=1, max_value=24)
     total_number_of_tests = test_duration * input_rate
     settings = {
         'total_number_of_tests': total_number_of_tests,
-        'testers': testers
+        'number_of_testers': number_of_testers
     }
     if st.button("اجرای آزمون‌ها"):
         st.info("🛠️ در حال اجرای آزمون‌ها و تولید داده...")
-        stdout, stderr = run_testcase(all_testcases, settings)
-        st.success("✅ تست با موفقیت اجرا شد.")
-        st.text(f"📤 خروجی:{stderr}\n{stdout}")
+        run_testcase(all_testcases, settings)
+        st.success("✅ آزمون‌ها با موفقیت اجرا شدند.")

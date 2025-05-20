@@ -4,7 +4,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import os
 
-class TestCase1(unittest.TestCase):
+class TestCase2(unittest.TestCase):
     username = ""
     password = ""
 
@@ -37,6 +37,6 @@ class TestCase1(unittest.TestCase):
 
 if __name__ == "__main__":
     loader = unittest.TestLoader()
-    suite = loader.loadTestsFromTestCase(TestCase1)
+    suite = loader.loadTestsFromTestCase(TestCase2)
     result = unittest.TextTestRunner(stream=open(os.devnull, 'w')).run(suite)
     print("pass" if result.wasSuccessful() else "fail")
