@@ -10,8 +10,8 @@ from faker import Faker
 
 fake = Faker()
 
-SETTINGS_FILE = "testcases.json"
-
+SETTINGS_FILE = 'testcases.json'
+RESULTS_FILE = 'results.json'
 
 def load_all_testcases():
     if os.path.exists(SETTINGS_FILE):
@@ -19,12 +19,20 @@ def load_all_testcases():
             return json.load(f)
     return {}
 
-
 def save_all_testcases(data):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
         st.rerun()
 
+def load_results():
+    if os.path.exists(RESULTS_FILE):
+        with open(RESULTS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_results(data):
+    with open(RESULTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def generate_data(fields, n_rows):
     df = pd.DataFrame()
@@ -69,14 +77,14 @@ def generate_data(fields, n_rows):
                                  for _ in range(n_rows)]
     return df
 
-def start_tester_test(tests, settings):
+def start_tester_test(tests, settings, testerId):
     number_of_tests_before_first_failure = 0
 
     for test in tests:
         n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
         df = generate_data(tests[test]["fields"], math.ceil(n_rows))
         df['result'] = ''
-        csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(i+1) + '.csv'
+        csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(testerId) + '.csv'
         csv_path = os.path.join(tests[test]["testcase_dir"], csv_name)
         df.to_csv(csv_path, index=False)
 
@@ -109,11 +117,23 @@ def run_testcase(tests, settings):
     number_of_failures = 0
     total_number_of_tests_executed = 0
     for i in range(number_of_testers):
-        number_of_tests, isFailed = start_tester_test(tests, settings)
+        number_of_tests, isFailed = start_tester_test(tests, settings, i+1)
         total_number_of_tests_executed += number_of_tests
         if isFailed:
             number_of_failures += 1
-        
+    results = load_results()
+    last_result = results[-1] if results else {"cumulative_failures": 0, "cumulative_time": 0}
+    cumulative_failures = last_result["cumulative_failures"] + number_of_failures
+    current_time = (total_number_of_tests_executed / float(settings['input_rate']))
+    cumulative_time = last_result["cumulative_time"] + current_time
+    results.append({
+        "failures": number_of_failures,
+        "time": current_time,
+        "cumulative_failures": cumulative_failures,
+        "cumulative_time": cumulative_time,
+        "failure_rate": cumulative_failures / cumulative_time
+    })
+    save_results(results)
 
 st.set_page_config(page_title="سیستم مدیریت و اجرای آزمون", layout="wide")
 st.markdown("<h1 style='text-align: center;'>🧪 سیستم مدیریت و اجرای آزمون</h1>", unsafe_allow_html=True)
