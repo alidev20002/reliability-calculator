@@ -1,17 +1,11 @@
-import os
 import json
-import subprocess
-from datetime import datetime, timedelta
-import math
-import numpy as np
-import pandas as pd
-import streamlit as st
-from faker import Faker
-
-fake = Faker()
+import os
+from flet import *
+import time
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
+
 
 def load_all_testcases():
     if os.path.exists(SETTINGS_FILE):
@@ -19,10 +13,11 @@ def load_all_testcases():
             return json.load(f)
     return {}
 
+
 def save_all_testcases(data):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-        st.rerun()
+
 
 def load_results():
     if os.path.exists(RESULTS_FILE):
@@ -30,215 +25,229 @@ def load_results():
             return json.load(f)
     return []
 
+
 def save_results(data):
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def generate_data(fields, n_rows):
-    df = pd.DataFrame()
-    for field in fields:
-        if field["type"] == "عددی":
-            if field["distribution"] == "یكنواخت":
-                data = np.random.uniform(field["low"], field["high"], n_rows)
-            elif field["distribution"] == "نرمال":
-                data = np.random.normal(field["mean"], field["std"], n_rows)
-            elif field["distribution"] == "پواسون":
-                data = np.random.poisson(field["lam"], n_rows)
-            if field["number_kind"] == "صحیح":
-                data = data.astype(int)
-            else:
-                data = data.round(2)
-            df[field["name"]] = data
 
-        elif field["type"] == "متنی":
-            if field["text_type"] == "نام":
-                df[field["name"]] = [fake.name() for _ in range(n_rows)]
-            elif field["text_type"] == "ایمیل":
-                df[field["name"]] = [fake.email() for _ in range(n_rows)]
-            elif field["text_type"] == "آدرس":
-                df[field["name"]] = [fake.address().replace("\n", ", ") for _ in range(n_rows)]
-            elif field["text_type"] == "پسورد":
-                df[field["name"]] = [fake.password(length=12, special_chars=True, digits=True, upper_case=True, lower_case=True) for _ in range(n_rows)]
-            else:
-                df[field["name"]] = [fake.text(max_nb_chars=50) for _ in range(n_rows)]
+def main(page: Page):
+    page.title = "سیستم مدیریت و اجرای آزمون"
+    page.scroll = ScrollMode.AUTO
+    page.rtl = True
 
-        elif field["type"] == "چند گزینه‌ای":
-            opts = field["options"]
-            if field.get("prob"):
-                probs = [float(p) for p in field["prob"].split(",")]
-                df[field["name"]] = np.random.choice(opts, size=n_rows, p=probs)
-            else:
-                df[field["name"]] = np.random.choice(opts, size=n_rows)
-
-        elif field["type"] == "تاریخ":
-            start = datetime.combine(field["start_date"], datetime.min.time())
-            end = datetime.combine(field["end_date"], datetime.min.time())
-            df[field["name"]] = [start + timedelta(days=np.random.randint(0, (end - start).days + 1))
-                                 for _ in range(n_rows)]
-    return df
-
-def start_tester_test(tests, settings, testerId):
-    number_of_tests_before_first_failure = 0
-
-    for test in tests:
-        n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
-        df = generate_data(tests[test]["fields"], math.ceil(n_rows))
-        df['result'] = ''
-        csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(testerId) + '.csv'
-        csv_path = os.path.join(tests[test]["testcase_dir"], csv_name)
-        df.to_csv(csv_path, index=False)
-
-        for idx, row in df.iterrows():
-            env = os.environ.copy()
-            env.update(row.dropna().astype(str).to_dict())
-            try:
-                result = subprocess.run(
-                    ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
-                    env=env,
-                    capture_output=True,
-                    text=True, timeout=300
-                )
-                output = result.stdout.strip().splitlines()
-                outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
-
-                df.at[idx, "result"] = outcome
-                df.to_csv(csv_path, index=False)
-
-                number_of_tests_before_first_failure += 1
-
-                if outcome == 'fail':
-                    return number_of_tests_before_first_failure, True
-            except Exception as e:
-                return "", str(e)
-    return number_of_tests_before_first_failure, False
-
-def run_testcase(tests, settings):
-    number_of_testers = settings['number_of_testers']
-    number_of_failures = 0
-    total_number_of_tests_executed = 0
-    for i in range(number_of_testers):
-        number_of_tests, isFailed = start_tester_test(tests, settings, i+1)
-        total_number_of_tests_executed += number_of_tests
-        if isFailed:
-            number_of_failures += 1
-    results = load_results()
-    last_result = results[-1] if results else {"cumulative_failures": 0, "cumulative_time": 0}
-    cumulative_failures = last_result["cumulative_failures"] + number_of_failures
-    current_time = (total_number_of_tests_executed / float(settings['input_rate']))
-    cumulative_time = last_result["cumulative_time"] + current_time
-    results.append({
-        "failures": number_of_failures,
-        "time": current_time,
-        "cumulative_failures": cumulative_failures,
-        "cumulative_time": cumulative_time,
-        "failure_rate": cumulative_failures / cumulative_time
-    })
-    save_results(results)
-
-st.set_page_config(page_title="سیستم مدیریت و اجرای آزمون", layout="wide")
-st.markdown("<h1 style='text-align: center;'>🧪 سیستم مدیریت و اجرای آزمون</h1>", unsafe_allow_html=True)
-
-tab1, tab2 = st.tabs(["مدیریت آزمون‌ها و تولید داده", "اجرای آزمون‌ها"])
-
-
-with tab1:
-    # Load all testcases
     all_testcases = load_all_testcases()
 
-    st.sidebar.title("🗂️ مدیریت سناریوهای آزمون")
-    test_names = list(all_testcases.keys())
-    selected_test = st.sidebar.selectbox("🔽 انتخاب یا ساخت سناریو آزمون", ["سناریو جدید"] + test_names)
+    selected_test = Dropdown(
+        label="انتخاب یا ساخت سناریو آزمون",
+        text_align='right',
+        text_style=TextStyle(
+            size=14
+        ),
+        expand=True
+    )
+    testcase_dir_picker = FilePicker()
+    page.overlay.append(testcase_dir_picker)
+    testcase_dir_input = TextField(
+        label="📂 مسیر دایرکتوری سناریو آزمون",
+        read_only=True
+    )
 
-    if selected_test == "سناریو جدید":
-        new_test_name = st.sidebar.text_input("📝 نام سناریو جدید")
-        test_data = {}
-    else:
-        new_test_name = selected_test
-        test_data = all_testcases[selected_test]
+    testcase_dir_row = Row(
+        controls=[
+            testcase_dir_input,
+            ElevatedButton(
+                "انتخاب فایل",
+                on_click=lambda e: testcase_dir_picker.pick_files(allow_multiple=False)
+            )
+        ],
+        spacing=10
+    )
 
-    # Main Inputs
-    testcase_dir = st.text_input("📂 مسیر دایرکتوری سناریو آزمون", value=test_data.get("testcase_dir", ""))
-    testcase_name = st.text_input("📄 نام فایل اسکریپت آزمون", value=test_data.get("testcase_name", ""))
-    percent = st.number_input("ضریب اهمیت (درصد)", min_value=0, max_value=100, step=1)
+    def on_file_selected(e):
+        if e.files:
+            testcase_dir_input.value = e.files[0].path
+            testcase_dir_input.update()
 
-    # Define fields
-    fields = []
-    n_fields = st.number_input("تعداد فیلدها", min_value=1, value=1)
+    testcase_dir_picker.on_result = on_file_selected
 
-    for i in range(n_fields):
-        st.markdown(f"### ⚙️ تنظیمات فیلد {i+1}")
-        col1, col2 = st.columns(2)
-        with col1:
-            field_name = st.text_input(f"نام فیلد {i+1}", key=f"name_{i}")
-        with col2:
-            field_type = st.selectbox(f"نوع فیلد {i+1}", ["عددی", "متنی", "چند گزینه‌ای", "تاریخ"], key=f"type_{i}")
+    percent_input = Slider(min=0, max=100, divisions=100, label="{value}%", value=0)
+    new_test_name_input = TextField(label="نام سناریو جدید")
+    test_list_column = Column(scroll=ScrollMode.AUTO)
 
-        config = {"name": field_name, "type": field_type}
+    def refresh_test_list():
+        selected_test.options = [dropdown.Option("سناریو جدید")] + [dropdown.Option(k) for k in all_testcases]
+        test_list_column.controls = []
+        for name, info in all_testcases.items():
+            test_list_column.controls.append(
+                ListTile(
+                    title=Text(f"{name}"),
+                    subtitle=Text(f"ضریب اهمیت: {info['percent']}%", rtl=True),
+                    trailing=Icon(name="DELETE", color="red"),
+                    on_click=lambda e, name=name: delete_testcase(name)
+                )
+            )
+        page.update()
 
-        if field_type == "عددی":
-            number_kind = st.selectbox("نوع عدد", ["صحیح", "اعشاری"], key=f"num_kind_{i}")
-            config["number_kind"] = number_kind
+    def delete_testcase(name):
+        all_testcases.pop(name, None)
+        save_all_testcases(all_testcases)
+        refresh_test_list()
 
-            dist = st.selectbox(f"توزیع برای فیلد {field_name}", ["یكنواخت", "نرمال", "پواسون"], key=f"dist_{i}")
-            config["distribution"] = dist
+    def save_testcase(e):
+        new_name = new_test_name_input.value
+        if not new_name:
+            page.snack_bar = SnackBar(Text("لطفاً نام سناریو آزمون را وارد کنید."))
+            page.snack_bar.open = True
+            page.update()
+            return
+        all_testcases[new_name] = {
+            "testcase_dir": testcase_dir_input.value,
+            "percent": int(percent_input.value),
+        }
+        save_all_testcases(all_testcases)
+        page.snack_bar = SnackBar(Text(f"سناریو '{new_name}' ذخیره شد."))
+        page.snack_bar.open = True
+        refresh_test_list()
 
-            if dist == "یكنواخت":
-                config["low"] = st.number_input("حداقل مقدار", key=f"low_{i}", value=0)
-                config["high"] = st.number_input("حداکثر مقدار", key=f"high_{i}", value=100)
-            elif dist == "نرمال":
-                config["mean"] = st.number_input("میانگین", key=f"mean_{i}", value=0)
-                config["std"] = st.number_input("انحراف معیار", key=f"std_{i}", value=1)
-            elif dist == "پواسون":
-                config["lam"] = st.number_input("لامبدا (میانگین)", key=f"lam_{i}", value=5)
-
-        elif field_type == "متنی":
-            config["text_type"] = st.selectbox("نوع متن", ["نام", "پسورد", "ایمیل", "آدرس", "جمله تصادفی"], key=f"text_{i}")
-
-        elif field_type == "چند گزینه‌ای":
-            options = st.text_input("گزینه‌ها را با کاما جدا کنید (مثلاً: پایین,متوسط,بالا)", key=f"options_{i}")
-            config["options"] = [opt.strip() for opt in options.split(",") if opt.strip()]
-            config["prob"] = st.text_input("احتمال گزینه‌ها (مثلاً: 0.2,0.5,0.3) یا خالی برای برابر", key=f"prob_{i}")
-
-        elif field_type == "تاریخ":
-            config["start_date"] = st.date_input("تاریخ شروع", key=f"start_{i}")
-            config["end_date"] = st.date_input("تاریخ پایان", key=f"end_{i}")
-
-        fields.append(config)
-
-    # Save test case
-    if st.button("💾 ذخیره این سناریو آزمون"):
-        if not new_test_name:
-            st.error("⚠️ لطفاً نام سناریو آزمون را وارد کنید.")
+    def on_test_select(e):
+        name = selected_test.value
+        if name and name in all_testcases:
+            data = all_testcases[name]
+            new_test_name_input.value = name
+            testcase_dir_input.value = data["testcase_dir"]
+            percent_input.value = data["percent"]
         else:
-            all_testcases[new_test_name] = {
-                "testcase_dir": testcase_dir,
-                "testcase_name": testcase_name,
-                "percent": percent,
-                "fields": fields
-            }
-            save_all_testcases(all_testcases)
-            st.success(f"✅ سناریو '{new_test_name}' ذخیره شد.")
+            new_test_name_input.value = ""
+            testcase_dir_input.value = ""
+            percent_input.value = 0
+        page.update()
 
-    # Show list of test cases
-    st.sidebar.markdown("### 📋 لیست سناریوها")
-    st.sidebar.markdown("برای حذف هر سناریو بر روی آن کلیک کنید")
-    for name in all_testcases:
-         if st.sidebar.button(f"- **{name}**   ---  {all_testcases[name]['percent']}"):
-             all_testcases.pop(name, None)
-             save_all_testcases(all_testcases)
+    selected_test.on_change = on_test_select
 
+    def start_tester_test(testerId):
+        pass
+        # number_of_tests_before_first_failure = 0
+        # start_time = time.time()
 
-with tab2:
-    input_rate = st.number_input("تعداد درخواست‌ها به سیستم در یک ساعت", min_value=1, max_value=1000, step=1)
-    number_of_testers = st.number_input("تعداد آزمونگرهای سیستم", min_value=1, max_value=10, step=1)
-    test_duration = st.number_input("تعداد ساعات تست", min_value=1, max_value=24)
-    total_number_of_tests = test_duration * input_rate
-    settings = {
-        'total_number_of_tests': total_number_of_tests,
-        'number_of_testers': number_of_testers,
-        'input_rate': input_rate
-    }
-    if st.button("اجرای آزمون‌ها"):
-        st.info("🛠️ در حال اجرای آزمون‌ها و تولید داده...")
-        run_testcase(all_testcases, settings)
-        st.success("✅ آزمون‌ها با موفقیت اجرا شدند.")
+        # for test in tests:
+        #     n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
+        #     df = generate_data(tests[test]["fields"], math.ceil(n_rows))
+        #     df['result'] = ''
+        #     csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(testerId) + '.csv'
+        #     csv_path = os.path.join(tests[test]["testcase_dir"], csv_name)
+        #     df.to_csv(csv_path, index=False)
+
+        #     for idx, row in df.iterrows():
+        #         env = os.environ.copy()
+        #         env.update(row.dropna().astype(str).to_dict())
+        #         try:
+        #             result = subprocess.run(
+        #                 ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
+        #                 env=env,
+        #                 capture_output=True,
+        #                 text=True, timeout=300
+        #             )
+        #             output = result.stdout.strip().splitlines()
+        #             outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+
+        #             df.at[idx, "result"] = outcome
+        #             df.to_csv(csv_path, index=False)
+
+        #             number_of_tests_before_first_failure += 1
+
+        #             # tester_name.markdown(f"*Tester{testerId}*")
+        #             # elapsed = int(time.time() - start_time)
+        #             # elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
+        #             # time_placeholder.markdown(f"⏱ **Elapsed Time**: `{elapsed_formatted}`")
+        #             # status_placeholder.markdown(f"🔄 Running **{test}** test `{idx + 1}/{math.ceil(n_rows)}`")
+        #             # separator.markdown("---")
+
+        #             elapsed = int(time.time() - start_time)
+        #             elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
+        #             st.session_state.results[testerId] = {
+        #                 'elapsed_formatted': f"⏱ **Elapsed Time**: `{elapsed_formatted}`",
+        #                 'status': f"🔄 Running **{test}** test `{idx + 1}/{math.ceil(n_rows)}`",
+        #                 'is_failed': outcome == 'fail'
+        #             }
+
+        #             if outcome == 'fail':
+        #                 return number_of_tests_before_first_failure, True
+        #         except Exception as e:
+        #             return "", str(e)
+                
+        # # tester_name.markdown(f"*Tester{testerId}*")
+        # # elapsed = int(time.time() - start_time)
+        # # elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
+        # # time_placeholder.markdown(f"⏱ **Elapsed Time**: `{elapsed_formatted}`")
+        # # status_placeholder.markdown(f"🔄 Running **{test}** test `{math.ceil(n_rows)}/{math.ceil(n_rows)}`")
+        # # separator.markdown("---")
+                
+        # elapsed = int(time.time() - start_time)
+        # elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
+
+        # return number_of_tests_before_first_failure, False
+
+    def run_testcase():
+        number_of_failures = 0
+        total_execution_time = 0
+        for i in range(number_of_testers):
+            execution_time, isFailed = start_tester_test(i+1)
+            total_number_of_tests_executed += number_of_tests
+            if isFailed:
+                number_of_failures += 1
+        results = load_results()
+        last_result = results[-1] if results else {"cumulative_failures": 0, "cumulative_time": 0}
+        cumulative_failures = last_result["cumulative_failures"] + number_of_failures
+        current_time = total_execution_time
+        cumulative_time = last_result["cumulative_time"] + current_time
+        results.append({
+            "failures": number_of_failures,
+            "time": current_time,
+            "cumulative_failures": cumulative_failures,
+            "cumulative_time": cumulative_time,
+            "failure_rate": cumulative_failures / cumulative_time
+        })
+        save_results(results)
+
+    number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
+    number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
+
+    refresh_test_list()
+
+    tab1 = Column([
+        Container(
+            content=Text("🗂️ مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
+            alignment=alignment.center,
+            padding=30
+        ),
+        Row([
+            Column([
+                selected_test,
+                Column([
+                    Text("لیست سناریوها برای حذف 📋", style=TextThemeStyle.TITLE_MEDIUM),
+                    test_list_column,
+                ])
+            ], width=300, horizontal_alignment="center", alignment="start", spacing=50),
+            Column([
+                new_test_name_input,
+                testcase_dir_row,
+                percent_input,
+                ElevatedButton("ذخیره سناریو", on_click=save_testcase),
+            ], horizontal_alignment="start")
+        ], alignment='start', vertical_alignment='start', expand=True, spacing=50),
+    ], spacing=50)
+
+    tab2 = Column([
+        Text("اجرای آزمون‌ها", style=TextThemeStyle.HEADLINE_MEDIUM),
+        number_of_tests,
+        number_of_testers,
+        ElevatedButton("اجرای آزمون‌ها", on_click={}),
+    ])
+
+    page.add(Tabs(tabs=[
+        Tab(text="مدیریت آزمون‌ها و تولید داده", content=tab1),
+        Tab(text="اجرای آزمون‌ها", content=tab2)
+    ]))
+
+app(target=main)
