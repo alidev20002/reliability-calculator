@@ -8,6 +8,8 @@ import math
 import threading
 import matplotlib.pyplot as plt
 import uuid
+import numpy as np
+from sklearn.linear_model import LinearRegression
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
@@ -36,7 +38,7 @@ def save_results(data):
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def generate_scatter_image(data):
+def plot_failure_rate_change(data):
     x = [item['failure_rate'] for item in data]
     y = [item['cumulative_failures'] for item in data]
 
@@ -51,6 +53,21 @@ def generate_scatter_image(data):
     plt.close(fig)
 
     return filename
+
+def estimate_goel_okumoto_params(data, t):
+    X = np.array([[item["failure_rate"]] for item in data])
+    y = np.array([item["cumulative_failures"] for item in data])
+
+    model = LinearRegression()
+    model.fit(X, y)
+
+    a = model.intercept_
+    b = abs(1.0 / model.coef_[0])
+    total_time = data[-1]['cumulative_time']
+
+    f = a * b * math.exp(-b * total_time)
+
+    return math.exp(-f * t)
 
 def build_tab_manage_tests(page: Page):
     all_testcases = load_all_testcases()
@@ -317,8 +334,27 @@ def build_tab_show_results(page: Page):
         rows=rows
     )
 
-    image_path = generate_scatter_image(results)
+    image_path = plot_failure_rate_change(results)
     image_control = Image(src=image_path, width=400, height=300)
+
+    selected_model = Dropdown(
+        label="انتخاب مدل تخمین قابلیت اطمینان",
+        options=[dropdown.Option('مدل Goel Okumoto')],
+        text_align='right',
+        text_style=TextStyle(
+            size=14
+        ),
+        expand=True
+    )
+
+    reliability_text = Text("")
+
+    def calculate_reliability(e):
+        reliability = 0
+        if selected_model.value == 'مدل Goel Okumoto':
+            reliability = estimate_goel_okumoto_params(results, int(operational_time.value))
+        reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        page.update()
 
     return Column([
         Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
@@ -334,7 +370,11 @@ def build_tab_show_results(page: Page):
             image_control,
         ], expand=True),
         operational_time,
-        ElevatedButton("محاسبه قابلیت اطمینان", on_click={}),
+        Row([
+            selected_model,
+            ElevatedButton("محاسبه قابلیت اطمینان", on_click=calculate_reliability)
+        ]),
+        reliability_text
     ])
 
 def main(page: Page):
