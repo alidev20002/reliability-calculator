@@ -2,6 +2,10 @@ import json
 import os
 from flet import *
 import time
+import pandas as pd
+import subprocess
+import math
+import threading
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
@@ -125,77 +129,97 @@ def main(page: Page):
 
     selected_test.on_change = on_test_select
 
+    number_of_failures = 0
+    total_execution_time = 0
+    running_threads = []
+    thread_statuses = Column()
+
     def start_tester_test(testerId):
-        pass
-        # number_of_tests_before_first_failure = 0
-        # start_time = time.time()
+        nonlocal number_of_failures, total_execution_time, running_threads
+        start_time = time.time()
 
-        # for test in tests:
-        #     n_rows = settings['total_number_of_tests'] * (tests[test]['percent'] / 100.0)
-        #     df = generate_data(tests[test]["fields"], math.ceil(n_rows))
-        #     df['result'] = ''
-        #     csv_name = tests[test]["testcase_name"].replace('.py', '') + '-tester' + str(testerId) + '.csv'
-        #     csv_path = os.path.join(tests[test]["testcase_dir"], csv_name)
-        #     df.to_csv(csv_path, index=False)
+        for test_case in all_testcases:
+            number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
+            csv_path = test_case + '-tester' + str(testerId+1) + '.csv'
+            test_case_path = all_testcases[test_case]["testcase_dir"]
+            df = pd.read_csv(csv_path)
+            df['result'] = ''
 
-        #     for idx, row in df.iterrows():
-        #         env = os.environ.copy()
-        #         env.update(row.dropna().astype(str).to_dict())
-        #         try:
-        #             result = subprocess.run(
-        #                 ["python", os.path.join(tests[test]["testcase_dir"], tests[test]["testcase_name"])],
-        #                 env=env,
-        #                 capture_output=True,
-        #                 text=True, timeout=300
-        #             )
-        #             output = result.stdout.strip().splitlines()
-        #             outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+            for idx, row in df.iterrows():
+                env = os.environ.copy()
+                env.update(row.dropna().astype(str).to_dict())
+                try:
+                    result = subprocess.run(
+                        ["python", test_case_path],
+                        env=env,
+                        capture_output=True,
+                        text=True, timeout=300
+                    )
+                    output = result.stdout.strip().splitlines()
+                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
 
-        #             df.at[idx, "result"] = outcome
-        #             df.to_csv(csv_path, index=False)
+                    df.at[idx, "result"] = outcome
+                    df.to_csv(csv_path, index=False)
 
-        #             number_of_tests_before_first_failure += 1
+                    tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
+                    thread_statuses.controls[testerId].value = f"Tester {testerId}: {tester_status}"
+                    page.update()
 
-        #             # tester_name.markdown(f"*Tester{testerId}*")
-        #             # elapsed = int(time.time() - start_time)
-        #             # elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
-        #             # time_placeholder.markdown(f"⏱ **Elapsed Time**: `{elapsed_formatted}`")
-        #             # status_placeholder.markdown(f"🔄 Running **{test}** test `{idx + 1}/{math.ceil(n_rows)}`")
-        #             # separator.markdown("---")
+                    if outcome == 'fail':
+                        elapsed = int(time.time() - start_time)
+                        elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
 
-        #             elapsed = int(time.time() - start_time)
-        #             elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
-        #             st.session_state.results[testerId] = {
-        #                 'elapsed_formatted': f"⏱ **Elapsed Time**: `{elapsed_formatted}`",
-        #                 'status': f"🔄 Running **{test}** test `{idx + 1}/{math.ceil(n_rows)}`",
-        #                 'is_failed': outcome == 'fail'
-        #             }
+                        total_execution_time += elapsed
+                        number_of_failures += 1
+                        running_threads[testerId] = False
 
-        #             if outcome == 'fail':
-        #                 return number_of_tests_before_first_failure, True
-        #         except Exception as e:
-        #             return "", str(e)
-                
-        # # tester_name.markdown(f"*Tester{testerId}*")
-        # # elapsed = int(time.time() - start_time)
-        # # elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
-        # # time_placeholder.markdown(f"⏱ **Elapsed Time**: `{elapsed_formatted}`")
-        # # status_placeholder.markdown(f"🔄 Running **{test}** test `{math.ceil(n_rows)}/{math.ceil(n_rows)}`")
-        # # separator.markdown("---")
-                
-        # elapsed = int(time.time() - start_time)
-        # elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
+                        thread_statuses.controls[testerId].value = f"Tester {testerId} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
+                        page.update()
+                        return
+                except Exception as e:
+                    
+                    print(e)
 
-        # return number_of_tests_before_first_failure, False
+                    elapsed = int(time.time() - start_time)
+                    elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
 
-    def run_testcase():
-        number_of_failures = 0
+                    total_execution_time += elapsed
+                    number_of_failures += 1
+                    running_threads[testerId] = False
+
+                    thread_statuses.controls[testerId].value = f"Tester {testerId} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
+                    page.update()
+                    return
+            
+        elapsed = int(time.time() - start_time)
+        elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
+
+        total_execution_time += elapsed
+        running_threads[testerId] = False
+
+        thread_statuses.controls[testerId].value = f"Tester {testerId} excuted all tests without failure -- Elapsed Time: {elapsed_formatted}"
+        page.update()
+
+    def run_testcase(e):
+        nonlocal running_threads, number_of_failures, total_execution_time
         total_execution_time = 0
-        for i in range(number_of_testers):
-            execution_time, isFailed = start_tester_test(i+1)
-            total_number_of_tests_executed += number_of_tests
-            if isFailed:
-                number_of_failures += 1
+        number_of_failures = 0
+        running_threads = [False] * int(number_of_testers.value)
+        thread_statuses.controls.clear()
+        for i in range(int(number_of_testers.value)):
+            thread_statuses.controls.append(Text(f"Thread {i}: Not started", size=18))
+            t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
+            t.start()
+            running_threads[i] = True
+        
+        page.update()
+
+        while (True in running_threads):
+            pass
+
+        thread_statuses.controls.append(Text("All Tests Finished"))
+        page.update()
+
         results = load_results()
         last_result = results[-1] if results else {"cumulative_failures": 0, "cumulative_time": 0}
         cumulative_failures = last_result["cumulative_failures"] + number_of_failures
@@ -242,7 +266,8 @@ def main(page: Page):
         Text("اجرای آزمون‌ها", style=TextThemeStyle.HEADLINE_MEDIUM),
         number_of_tests,
         number_of_testers,
-        ElevatedButton("اجرای آزمون‌ها", on_click={}),
+        ElevatedButton("اجرای آزمون‌ها", on_click=run_testcase),
+        thread_statuses
     ])
 
     page.add(Tabs(tabs=[
