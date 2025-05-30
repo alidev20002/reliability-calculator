@@ -123,7 +123,7 @@ def build_tab_manage_tests(page: Page):
         page.update()
 
     selected_test.on_change = on_test_select
-    
+
     refresh_test_list()
 
     return Column([
@@ -268,19 +268,56 @@ def build_tab_run_tests(page: Page):
         thread_statuses
     ])
 
+def build_tab_show_results(page: Page):
+    results = load_results()
+
+    rows = [
+        DataRow(
+            cells=[
+                DataCell(Text(str(idx + 1))),
+                DataCell(Text(str(item["failures"]))),
+                DataCell(Text(str(item["time"]))),
+                DataCell(Text(str(item["cumulative_failures"]))),
+                DataCell(Text(str(item["cumulative_time"]))),
+                DataCell(Text(f"{item['failure_rate']:.4f}"))
+            ]
+        )
+        for idx, item in enumerate(results)
+    ]
+
+    table = DataTable(
+        columns=[
+            DataColumn(label=Text("ردیف")),
+            DataColumn(label=Text("تعداد شکست‌ها")),
+            DataColumn(label=Text("زمان")),
+            DataColumn(label=Text("شکست‌های تجمعی")),
+            DataColumn(label=Text("زمان تجمعی")),
+            DataColumn(label=Text("نرخ شکست")),
+        ],
+        rows=rows
+    )
+
+    return Column([
+        Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
+        Container(
+            content=Column([table], scroll=ScrollMode.AUTO),
+            height=300,
+            bgcolor=Colors.GREY_100,
+            padding=10,
+            border_radius=10,
+            border=border.all(1, Colors.GREY_300),
+        )
+    ])
+
 def main(page: Page):
     page.title = "سیستم مدیریت و اجرای آزمون"
     page.scroll = ScrollMode.AUTO
     page.rtl = True
 
-    tab3 = Column([
-        Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
-    ])
-
     page.add(Tabs(tabs=[
         Tab(text="مدیریت آزمون‌ها و تولید داده", content=build_tab_manage_tests(page)),
         Tab(text="اجرای آزمون‌ها", content=build_tab_run_tests(page)),
-        Tab(text="محاسبه قابلیت اطمینان", content=tab3)
+        Tab(text="محاسبه قابلیت اطمینان", content=build_tab_show_results(page))
     ]))
 
 app(target=main)
