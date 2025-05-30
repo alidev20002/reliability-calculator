@@ -34,12 +34,7 @@ def save_results(data):
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-
-def main(page: Page):
-    page.title = "سیستم مدیریت و اجرای آزمون"
-    page.scroll = ScrollMode.AUTO
-    page.rtl = True
-
+def build_tab_manage_tests(page: Page):
     all_testcases = load_all_testcases()
 
     selected_test = Dropdown(
@@ -128,6 +123,34 @@ def main(page: Page):
         page.update()
 
     selected_test.on_change = on_test_select
+    
+    refresh_test_list()
+
+    return Column([
+        Container(
+            content=Text("🗂️ مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
+            alignment=alignment.center,
+            padding=30
+        ),
+        Row([
+            Column([
+                selected_test,
+                Column([
+                    Text("لیست سناریوها برای حذف 📋", style=TextThemeStyle.TITLE_MEDIUM),
+                    test_list_column,
+                ])
+            ], width=300, horizontal_alignment="center", alignment="start", spacing=50),
+            Column([
+                new_test_name_input,
+                testcase_dir_row,
+                percent_input,
+                ElevatedButton("ذخیره سناریو", on_click=save_testcase),
+            ], horizontal_alignment="start")
+        ], alignment='start', vertical_alignment='start', expand=True, spacing=50),
+    ], spacing=50)
+
+def build_tab_run_tests(page: Page):
+    all_testcases = load_all_testcases()
 
     number_of_failures = 0
     total_execution_time = 0
@@ -237,32 +260,7 @@ def main(page: Page):
     number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
-    refresh_test_list()
-
-    tab1 = Column([
-        Container(
-            content=Text("🗂️ مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
-            alignment=alignment.center,
-            padding=30
-        ),
-        Row([
-            Column([
-                selected_test,
-                Column([
-                    Text("لیست سناریوها برای حذف 📋", style=TextThemeStyle.TITLE_MEDIUM),
-                    test_list_column,
-                ])
-            ], width=300, horizontal_alignment="center", alignment="start", spacing=50),
-            Column([
-                new_test_name_input,
-                testcase_dir_row,
-                percent_input,
-                ElevatedButton("ذخیره سناریو", on_click=save_testcase),
-            ], horizontal_alignment="start")
-        ], alignment='start', vertical_alignment='start', expand=True, spacing=50),
-    ], spacing=50)
-
-    tab2 = Column([
+    return Column([
         Text("اجرای آزمون‌ها", style=TextThemeStyle.HEADLINE_MEDIUM),
         number_of_tests,
         number_of_testers,
@@ -270,9 +268,19 @@ def main(page: Page):
         thread_statuses
     ])
 
+def main(page: Page):
+    page.title = "سیستم مدیریت و اجرای آزمون"
+    page.scroll = ScrollMode.AUTO
+    page.rtl = True
+
+    tab3 = Column([
+        Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
+    ])
+
     page.add(Tabs(tabs=[
-        Tab(text="مدیریت آزمون‌ها و تولید داده", content=tab1),
-        Tab(text="اجرای آزمون‌ها", content=tab2)
+        Tab(text="مدیریت آزمون‌ها و تولید داده", content=build_tab_manage_tests(page)),
+        Tab(text="اجرای آزمون‌ها", content=build_tab_run_tests(page)),
+        Tab(text="محاسبه قابلیت اطمینان", content=tab3)
     ]))
 
 app(target=main)
