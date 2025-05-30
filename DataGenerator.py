@@ -6,6 +6,8 @@ import pandas as pd
 import subprocess
 import math
 import threading
+import matplotlib.pyplot as plt
+import uuid
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
@@ -33,6 +35,22 @@ def load_results():
 def save_results(data):
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+def generate_scatter_image(data):
+    x = [item['failure_rate'] for item in data]
+    y = [item['cumulative_failures'] for item in data]
+
+    fig, ax = plt.subplots()
+    ax.scatter(x, y)
+    ax.set_xlabel("Failure Rate")
+    ax.set_ylabel("Cumulative Failures")
+    ax.set_title("Failure Rate vs Cumulative Failures")
+
+    filename = f"plot_{uuid.uuid4().hex}.png"
+    plt.savefig(filename)
+    plt.close(fig)
+
+    return filename
 
 def build_tab_manage_tests(page: Page):
     all_testcases = load_all_testcases()
@@ -285,6 +303,8 @@ def build_tab_show_results(page: Page):
         for idx, item in enumerate(results)
     ]
 
+    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
+
     table = DataTable(
         columns=[
             DataColumn(label=Text("ردیف")),
@@ -297,16 +317,24 @@ def build_tab_show_results(page: Page):
         rows=rows
     )
 
+    image_path = generate_scatter_image(results)
+    image_control = Image(src=image_path, width=400, height=300)
+
     return Column([
         Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
-        Container(
-            content=Column([table], scroll=ScrollMode.AUTO),
-            height=300,
-            bgcolor=Colors.GREY_100,
-            padding=10,
-            border_radius=10,
-            border=border.all(1, Colors.GREY_300),
-        )
+        Row([
+            Container(
+                content=Column([table], scroll=ScrollMode.AUTO),
+                height=300,
+                bgcolor=Colors.GREY_100,
+                padding=10,
+                border_radius=10,
+                border=border.all(1, Colors.GREY_300),
+            ),
+            image_control,
+        ], expand=True),
+        operational_time,
+        ElevatedButton("محاسبه قابلیت اطمینان", on_click={}),
     ])
 
 def main(page: Page):
