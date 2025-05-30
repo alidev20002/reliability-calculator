@@ -48,7 +48,25 @@ def plot_failure_rate_change(data):
     ax.set_ylabel("Cumulative Failures")
     ax.set_title("Failure Rate vs Cumulative Failures")
 
-    filename = f"plot_{uuid.uuid4().hex}.png"
+    os.makedirs("plots", exist_ok=True)
+    filename = f"plots/plot_failure_rate_change.png"
+    plt.savefig(filename)
+    plt.close(fig)
+
+    return filename
+
+def plot_failure_detection_rate(data):
+    x = [item['cumulative_time'] for item in data]
+    y = [item['failures'] for item in data]
+
+    fig, ax = plt.subplots()
+    ax.bar(x, y, width=5.0, edgecolor='black')  # Adjust width as needed
+    ax.set_xlabel("Cumulative Time")
+    ax.set_ylabel("Number of Failures")
+    ax.set_title("Number of Failures vs Cumulative Time")
+
+    os.makedirs("plots", exist_ok=True)
+    filename = "plots/plot_failure_detection_rate.png"
     plt.savefig(filename)
     plt.close(fig)
 
@@ -337,6 +355,26 @@ def build_tab_show_results(page: Page):
     image_path = plot_failure_rate_change(results)
     image_control = Image(src=image_path, width=400, height=300)
 
+    selected_plot = Dropdown(
+        label="انتخاب نمودار",
+        options=[dropdown.Option('نمودار تغییر نرخ خرابی'), dropdown.Option('نمودار نرخ کشف خرابی')],
+        text_align='right',
+        text_style=TextStyle(
+            size=14
+        ),
+    )
+
+    def on_select_plot(e):
+        nonlocal image_path
+        if selected_plot.value == 'نمودار تغییر نرخ خرابی':
+            image_path = plot_failure_rate_change(results)
+        elif selected_plot.value == 'نمودار نرخ کشف خرابی':
+            image_path = plot_failure_detection_rate(results)
+            
+        image_control.src = image_path
+        page.update()
+    selected_plot.on_change = on_select_plot
+
     selected_model = Dropdown(
         label="انتخاب مدل تخمین قابلیت اطمینان",
         options=[dropdown.Option('مدل Goel Okumoto')],
@@ -344,7 +382,6 @@ def build_tab_show_results(page: Page):
         text_style=TextStyle(
             size=14
         ),
-        expand=True
     )
 
     reliability_text = Text("")
@@ -367,7 +404,10 @@ def build_tab_show_results(page: Page):
                 border_radius=10,
                 border=border.all(1, Colors.GREY_300),
             ),
-            image_control,
+            Column([
+                selected_plot,
+                image_control
+            ], expand=True)
         ], expand=True),
         operational_time,
         Row([
