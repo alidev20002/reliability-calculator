@@ -7,7 +7,6 @@ import subprocess
 import math
 import threading
 import matplotlib.pyplot as plt
-import uuid
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
