@@ -9,6 +9,7 @@ import threading
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from scipy.optimize import minimize, curve_fit
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
@@ -71,7 +72,7 @@ def plot_failure_detection_rate(data):
 
     return filename
 
-def estimate_goel_okumoto_params(data, t):
+def estimate_goel_okumoto(data, t):
     X = np.array([[item["failure_rate"]] for item in data])
     y = np.array([item["cumulative_failures"] for item in data])
 
@@ -85,6 +86,40 @@ def estimate_goel_okumoto_params(data, t):
     f = a * b * math.exp(-b * total_time)
 
     return math.exp(-f * t)
+
+def estimate_weibull(data, t):
+    def weibull_pdf(time_array, a, b, c):
+        return a * b * c * (b * time_array) ** (c - 1) * np.exp(- (b * time_array) ** c)
+
+    def neg_log_likelihood(params, time_array):
+        a, b, c = params
+        if a <= 0 or b <= 0 or c <= 0:
+            return np.inf 
+        likelihoods = weibull_pdf(time_array, a, b, c)
+        likelihoods = np.where(likelihoods <= 1e-10, 1e-10, likelihoods)
+        return -np.sum(np.log(likelihoods))
+    
+    cumulative_time = np.array([[item["cumulative_time"]] for item in data])
+    initial_guess = [12, 0.1, 1.0]
+    result = minimize(neg_log_likelihood, initial_guess, args=(cumulative_time,), method='L-BFGS-B', bounds=[(1e-3, None)]*3)
+    a, b, c = result.x
+    total_time = data[-1]['cumulative_time']
+    f = (a * b * c) * math.pow((b * total_time), c-1) * math.exp(-math.pow((b * total_time), c))
+
+    return math.exp(-f * t)
+
+def estimate_log_logistics(data, t):
+    
+    def F_model(t, a, b, c):
+        return (a * (b * t)**c) / (1 + (b * t)**c)
+    
+    initial_guess = [35, 0.1, 2]
+    cumulative_time = np.array([[item["cumulative_time"]] for item in data])
+    cumulative_failures = np.array([[item["cumulative_failures"]] for item in data])
+    params, _ = curve_fit(F_model, cumulative_time, cumulative_failures, p0=initial_guess, bounds=(0, np.inf))
+    a, b, c = params
+    print(f"a: {a}, b: {b}, c: {c}")
+    return 0
 
 def build_tab_manage_tests(page: Page):
     all_testcases = load_all_testcases()
@@ -382,7 +417,7 @@ def build_tab_show_results(page: Page):
 
     selected_model = Dropdown(
         label="انتخاب مدل تخمین قابلیت اطمینان",
-        options=[dropdown.Option('مدل Goel Okumoto')],
+        options=[dropdown.Option('مدل Goel Okumoto'), dropdown.Option('مدل Weibull'), dropdown.Option('مدل Log-Logistics')],
         text_align='right',
         text_style=TextStyle(
             size=14
@@ -394,7 +429,12 @@ def build_tab_show_results(page: Page):
     def calculate_reliability(e):
         reliability = 0
         if selected_model.value == 'مدل Goel Okumoto':
-            reliability = estimate_goel_okumoto_params(results, int(operational_time.value))
+            reliability = estimate_goel_okumoto(results, int(operational_time.value))
+        elif selected_model.value == 'مدل Weibull':
+            reliability = estimate_weibull(results, int(operational_time.value))
+        elif selected_model.value == 'مدل Log-Logistics':
+            reliability = estimate_log_logistics(results, int(operational_time.value))
+
         reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         page.update()
 
