@@ -313,12 +313,18 @@ def build_tab_run_tests(page: Page):
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
     return Column([
-        Text("اجرای آزمون‌ها", style=TextThemeStyle.HEADLINE_MEDIUM),
-        number_of_tests,
-        number_of_testers,
-        ElevatedButton("اجرای آزمون‌ها", on_click=run_testcase),
+        Container(
+            content=Text("اجرای آزمون‌ها", style=TextThemeStyle.HEADLINE_MEDIUM),
+            alignment=alignment.center,
+            padding=30
+        ),
+        Column([
+            number_of_tests,
+            number_of_testers,
+            ElevatedButton("اجرای آزمون‌ها", on_click=run_testcase)
+        ], width=300, horizontal_alignment='center'),
         thread_statuses
-    ])
+    ], expand=True, horizontal_alignment='center')
 
 def build_tab_show_results(page: Page):
     results = load_results()
