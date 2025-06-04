@@ -14,18 +14,15 @@ from scipy.optimize import minimize, curve_fit
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
 
-
 def load_all_testcases():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-
 def save_all_testcases(data):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
 
 def load_results():
     if os.path.exists(RESULTS_FILE):
@@ -33,10 +30,16 @@ def load_results():
             return json.load(f)
     return []
 
-
 def save_results(data):
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+def generate_input_data(test_name, tester_id, count):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_filename = f"{test_name}-tester{tester_id + 1}.csv"
+    csv_path = os.path.join(current_dir, csv_filename)
+    # Calling LLM API with params (count, csv_path, test_name)
+    return csv_path
 
 def plot_failure_rate_change(data):
     x = [item['failure_rate'] for item in data]
@@ -250,7 +253,7 @@ def build_tab_run_tests(page: Page):
 
         for test_case in all_testcases:
             number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
-            csv_path = test_case + '-tester' + str(testerId+1) + '.csv'
+            csv_path = generate_input_data(test_case, testerId, number_of_sub_tests)
             test_case_path = all_testcases[test_case]["testcase_dir"]
             df = pd.read_csv(csv_path)
             df['result'] = ''
@@ -272,7 +275,7 @@ def build_tab_run_tests(page: Page):
                     df.to_csv(csv_path, index=False)
 
                     tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
-                    thread_statuses.controls[testerId].value = f"Tester {testerId}: {tester_status}"
+                    thread_statuses.controls[testerId].value = f"Tester {testerId+1}: {tester_status}"
                     page.update()
 
                     if outcome == 'fail':
@@ -283,7 +286,7 @@ def build_tab_run_tests(page: Page):
                         number_of_failures += 1
                         running_threads[testerId] = False
 
-                        thread_statuses.controls[testerId].value = f"Tester {testerId} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
+                        thread_statuses.controls[testerId].value = f"Tester {testerId+1} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
                         page.update()
                         return
                 except Exception as e:
@@ -297,7 +300,7 @@ def build_tab_run_tests(page: Page):
                     number_of_failures += 1
                     running_threads[testerId] = False
 
-                    thread_statuses.controls[testerId].value = f"Tester {testerId} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
+                    thread_statuses.controls[testerId].value = f"Tester {testerId+1} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
                     page.update()
                     return
             
@@ -307,7 +310,7 @@ def build_tab_run_tests(page: Page):
         total_execution_time += elapsed
         running_threads[testerId] = False
 
-        thread_statuses.controls[testerId].value = f"Tester {testerId} excuted all tests without failure -- Elapsed Time: {elapsed_formatted}"
+        thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests without failure -- Elapsed Time: {elapsed_formatted}"
         page.update()
 
     def run_testcase(e):
@@ -317,7 +320,7 @@ def build_tab_run_tests(page: Page):
         running_threads = [False] * int(number_of_testers.value)
         thread_statuses.controls.clear()
         for i in range(int(number_of_testers.value)):
-            thread_statuses.controls.append(Text(f"Thread {i}: Not started", size=18))
+            thread_statuses.controls.append(Text(f"Tester {i+1}: Not started", size=18))
             t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
             t.start()
             running_threads[i] = True
