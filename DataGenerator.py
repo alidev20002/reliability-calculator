@@ -226,7 +226,7 @@ def build_tab_manage_tests(page: Page):
             Column([
                 selected_test,
                 Column([
-                    Text("لیست سناریوها برای حذف 📋", style=TextThemeStyle.TITLE_MEDIUM),
+                    Text("لیست سناریوها 📋", style=TextThemeStyle.TITLE_MEDIUM),
                     test_list_column,
                 ])
             ], width=300, horizontal_alignment="center", alignment="start", spacing=50),
@@ -381,8 +381,6 @@ def build_tab_show_results(page: Page):
         for idx, item in enumerate(results)
     ]
 
-    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
-
     table = DataTable(
         columns=[
             DataColumn(label=Text("ردیف")),
@@ -427,26 +425,48 @@ def build_tab_show_results(page: Page):
         ),
     )
 
+    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
+    operational_time_unit = Dropdown(
+        label="واحد زمان",
+        options=[
+            dropdown.Option("ثانیه"),
+            dropdown.Option("دقیقه"),
+            dropdown.Option("ساعت")
+        ],
+        value="ثانیه"
+    )
+
     reliability_text = Text("")
 
     def calculate_reliability(e):
         reliability = 0
+        if operational_time_unit.value == 'ساعت':
+            operational_time_value = int(operational_time.value) * 60 * 60
+        elif operational_time_unit.value == 'دقیقه':
+            operational_time_value = int(operational_time.value) * 60
+        else:
+            operational_time_value = int(operational_time.value)
+
         if selected_model.value == 'مدل Goel Okumoto':
-            reliability = estimate_goel_okumoto(results, int(operational_time.value))
+            reliability = estimate_goel_okumoto(results, operational_time_value)
         elif selected_model.value == 'مدل Weibull':
-            reliability = estimate_weibull(results, int(operational_time.value))
+            reliability = estimate_weibull(results, operational_time_value)
         elif selected_model.value == 'مدل Log-Logistics':
-            reliability = estimate_log_logistics(results, int(operational_time.value))
+            reliability = estimate_log_logistics(results, operational_time_value)
 
         reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         page.update()
 
     return Column([
-        Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
+        Container(
+            content=Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
+            alignment=alignment.center,
+            padding=30
+        ),
         Row([
             Container(
                 content=Column([table], scroll=ScrollMode.AUTO),
-                height=300,
+                height=400,
                 bgcolor=Colors.GREY_100,
                 padding=10,
                 border_radius=10,
@@ -455,14 +475,20 @@ def build_tab_show_results(page: Page):
             Column([
                 selected_plot,
                 image_control
-            ], expand=True)
+            ], expand=True, height=400)
         ], expand=True),
-        operational_time,
+        Row([
+            operational_time,
+            operational_time_unit
+        ], expand=True, alignment='center'),
         Row([
             selected_model,
             ElevatedButton("محاسبه قابلیت اطمینان", on_click=calculate_reliability)
-        ]),
-        reliability_text
+        ], expand=True, alignment='center'),
+        Container(
+            content=reliability_text,
+            alignment=alignment.center
+        )
     ])
 
 def main(page: Page):
