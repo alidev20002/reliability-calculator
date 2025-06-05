@@ -146,7 +146,14 @@ def build_tab_manage_tests(page: Page):
         controls=[
             testcase_dir_input,
             ElevatedButton(
-                "انتخاب فایل",
+                text="انتخاب فایل",
+                icon=Icons.UPLOAD_FILE,
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
                 on_click=lambda e: testcase_dir_picker.pick_files(allow_multiple=False)
             )
         ],
@@ -160,9 +167,11 @@ def build_tab_manage_tests(page: Page):
 
     testcase_dir_picker.on_result = on_file_selected
 
-    percent_input = Slider(min=0, max=100, divisions=100, label="{value}%", value=0)
+    max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
+    percent_input = Slider(min=0, max=max_percent_value, divisions=max_percent_value, label="{value}%", value=0)
     new_test_name_input = TextField(label="نام سناریو جدید")
     test_list_column = Column(scroll=ScrollMode.AUTO)
+    user_message = Text()
 
     def refresh_test_list():
         selected_test.options = [dropdown.Option("سناریو جدید")] + [dropdown.Option(k) for k in all_testcases]
@@ -186,8 +195,8 @@ def build_tab_manage_tests(page: Page):
     def save_testcase(e):
         new_name = new_test_name_input.value
         if not new_name:
-            page.snack_bar = SnackBar(Text("لطفاً نام سناریو آزمون را وارد کنید."))
-            page.snack_bar.open = True
+            user_message.value = "لطفاً نام سناریو آزمون را وارد کنید."
+            user_message.color = Colors.RED
             page.update()
             return
         all_testcases[new_name] = {
@@ -195,8 +204,12 @@ def build_tab_manage_tests(page: Page):
             "percent": int(percent_input.value),
         }
         save_all_testcases(all_testcases)
-        page.snack_bar = SnackBar(Text(f"سناریو '{new_name}' ذخیره شد."))
-        page.snack_bar.open = True
+        percent_input.value = 0
+        max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
+        percent_input.max = max_percent_value
+        percent_input.divisions = max_percent_value
+        user_message.value = f"سناریو '{new_name}' ذخیره شد."
+        user_message.color = Colors.GREEN
         refresh_test_list()
 
     def on_test_select(e):
@@ -204,12 +217,21 @@ def build_tab_manage_tests(page: Page):
         if name and name in all_testcases:
             data = all_testcases[name]
             new_test_name_input.value = name
+            new_test_name_input.read_only = True
             testcase_dir_input.value = data["testcase_dir"]
+            percent_input.max = 100
+            percent_input.divisions = 100
             percent_input.value = data["percent"]
+            percent_input.disabled = True
         else:
             new_test_name_input.value = ""
+            new_test_name_input.read_only = False
             testcase_dir_input.value = ""
+            max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
+            percent_input.max = max_percent_value
+            percent_input.divisions = max_percent_value
             percent_input.value = 0
+            percent_input.disabled = False
         page.update()
 
     selected_test.on_change = on_test_select
@@ -233,8 +255,21 @@ def build_tab_manage_tests(page: Page):
             Column([
                 new_test_name_input,
                 testcase_dir_row,
-                percent_input,
-                ElevatedButton("ذخیره سناریو", on_click=save_testcase),
+                Row([
+                    Text('ضریب اهمیت سناریوی آزمون (درصد): '),
+                    percent_input,
+                ]),
+                ElevatedButton(
+                    text="ذخیره سناریو",
+                    bgcolor=Colors.BLUE_500,
+                    color=Colors.WHITE,
+                    style=ButtonStyle(
+                        shape= RoundedRectangleBorder(8),
+                        padding=Padding(15, 15, 15, 15)
+                    ),
+                    on_click=save_testcase
+                ),
+                user_message
             ], horizontal_alignment="start")
         ], alignment='start', vertical_alignment='start', expand=True, spacing=50),
     ], spacing=50)
@@ -359,7 +394,16 @@ def build_tab_run_tests(page: Page):
         Column([
             number_of_tests,
             number_of_testers,
-            ElevatedButton("اجرای آزمون‌ها", on_click=run_testcase)
+            ElevatedButton(
+                text="اجرای آزمون‌ها",
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=run_testcase
+            )
         ], width=300, horizontal_alignment='center'),
         thread_statuses
     ], expand=True, horizontal_alignment='center')
@@ -483,7 +527,16 @@ def build_tab_show_results(page: Page):
         ], expand=True, alignment='center'),
         Row([
             selected_model,
-            ElevatedButton("محاسبه قابلیت اطمینان", on_click=calculate_reliability)
+            ElevatedButton(
+                text="محاسبه قابلیت اطمینان",
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=calculate_reliability
+            )
         ], expand=True, alignment='center'),
         Container(
             content=reliability_text,
