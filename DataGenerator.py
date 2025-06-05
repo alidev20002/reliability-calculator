@@ -467,6 +467,7 @@ def build_tab_show_results(page: Page):
         text_style=TextStyle(
             size=14
         ),
+        width=400
     )
 
     operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
