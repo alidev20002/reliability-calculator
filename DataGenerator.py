@@ -117,12 +117,12 @@ def estimate_log_logistics(data, t):
         return (a * (b * t)**c) / (1 + (b * t)**c)
     
     initial_guess = [35, 0.1, 2]
-    cumulative_time = np.array([[item["cumulative_time"]] for item in data])
-    cumulative_failures = np.array([[item["cumulative_failures"]] for item in data])
+    cumulative_time = np.array([item["cumulative_time"] for item in data])
+    cumulative_failures = np.array([item["cumulative_failures"] for item in data])
     params, _ = curve_fit(F_model, cumulative_time, cumulative_failures, p0=initial_guess, bounds=(0, np.inf))
     a, b, c = params
-    print(f"a: {a}, b: {b}, c: {c}")
-    return 0
+    f = (a * b * c * ((b * t) ** (c - 1))) / ((1 + ((b * t) ** c)) ** 2)
+    return math.exp(-f * t)
 
 def build_tab_manage_tests(page: Page):
     all_testcases = load_all_testcases()
