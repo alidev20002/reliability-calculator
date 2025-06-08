@@ -120,8 +120,29 @@ def estimate_log_logistics(data, t):
     cumulative_time = np.array([item["cumulative_time"] for item in data])
     cumulative_failures = np.array([item["cumulative_failures"] for item in data])
     params, _ = curve_fit(F_model, cumulative_time, cumulative_failures, p0=initial_guess, bounds=(0, np.inf))
+
     a, b, c = params
-    f = (a * b * c * ((b * t) ** (c - 1))) / ((1 + ((b * t) ** c)) ** 2)
+    total_time = data[-1]['cumulative_time']
+    f = (a * b * c * ((b * total_time) ** (c - 1))) / ((1 + ((b * total_time) ** c)) ** 2)
+
+    return math.exp(-f * t)
+
+def estimate_duane(data, t):
+    cumulative_time = np.array([item["cumulative_time"] for item in data])
+    cumulative_failures = np.array([item["cumulative_failures"] for item in data])
+
+    ln_t = np.log(cumulative_time).reshape(-1, 1)
+    ln_f = np.log(cumulative_failures)
+
+    model = LinearRegression()
+    model.fit(ln_t, ln_f)
+
+    b = model.coef_[0]
+    ln_a = model.intercept_
+    a = np.exp(ln_a)
+    total_time = data[-1]['cumulative_time']
+    f = a * b * (total_time ** (b - 1))
+    
     return math.exp(-f * t)
 
 def build_tab_manage_tests(page: Page):
@@ -462,7 +483,12 @@ def build_tab_show_results(page: Page):
 
     selected_model = Dropdown(
         label="انتخاب مدل تخمین قابلیت اطمینان",
-        options=[dropdown.Option('مدل Goel Okumoto'), dropdown.Option('مدل Weibull'), dropdown.Option('مدل Log-Logistics')],
+        options=[
+            dropdown.Option('مدل Goel Okumoto'),
+            dropdown.Option('مدل Weibull'),
+            dropdown.Option('مدل Log-Logistics'),
+            dropdown.Option('مدل Duane'),
+        ],
         text_align='right',
         text_style=TextStyle(
             size=14
@@ -498,6 +524,8 @@ def build_tab_show_results(page: Page):
             reliability = estimate_weibull(results, operational_time_value)
         elif selected_model.value == 'مدل Log-Logistics':
             reliability = estimate_log_logistics(results, operational_time_value)
+        elif selected_model.value == 'مدل Duane':
+            reliability = estimate_duane(results, operational_time_value)
 
         reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         page.update()
