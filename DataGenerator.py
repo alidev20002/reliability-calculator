@@ -9,7 +9,7 @@ import threading
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from scipy.optimize import minimize, curve_fit
+from scipy.optimize import minimize, curve_fit, root
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
@@ -102,7 +102,7 @@ def estimate_weibull(data, t):
         likelihoods = np.where(likelihoods <= 1e-10, 1e-10, likelihoods)
         return -np.sum(np.log(likelihoods))
     
-    cumulative_time = np.array([[item["cumulative_time"]] for item in data])
+    cumulative_time = np.array([item["cumulative_time"] for item in data])
     initial_guess = [12, 0.1, 1.0]
     result = minimize(neg_log_likelihood, initial_guess, args=(cumulative_time,), method='L-BFGS-B', bounds=[(1e-3, None)]*3)
     a, b, c = result.x
@@ -110,6 +110,54 @@ def estimate_weibull(data, t):
     f = (a * b * c) * math.pow((b * total_time), c-1) * math.exp(-math.pow((b * total_time), c))
 
     return math.exp(-f * t)
+
+def weibull_2(data, t):
+    # ti: time intervals, ki: number of faults observed
+    # time intervals t_i
+    ti = np.array([item["cumulative_time"] for item in data]) 
+    # corresponding fault counts k_i  
+    ki = np.array([item["failures"] for item in data])   
+
+    n = len(ti)
+    ti_1 = np.roll(ti, 1)
+    ti_1[0] = 0  # t_0 = 0
+
+    def equations(vars):
+        b, c = vars
+        term1 = 0
+        term2 = 0
+        sum_ki = np.sum(ki)
+
+        for i in range(n):
+            num1 = ki[i] * ((ti[i] ** c) * np.exp(-b * ti[i] ** c) - (ti_1[i] ** c) * np.exp(-b * ti_1[i] ** c))
+            den1 = np.exp(-b * ti_1[i] ** c) - np.exp(-b * ti[i] ** c)
+            term1 += num1 / den1
+
+            num2 = ki[i] * (
+                (ti[i] ** c) * np.log(ti[i]) * np.exp(-b * ti[i] ** c)
+                - (ti_1[i] ** c) * np.log(ti_1[i] + 1e-10) * np.exp(-b * ti_1[i] ** c)
+            )
+            den2 = np.exp(-b * ti_1[i] ** c) - np.exp(-b * ti[i] ** c)
+            term2 += num2 / den2
+
+        eq1 = term1 - (ti[n-1] ** c) * np.exp(-b * ti[n-1] ** c) * sum_ki / (1 - np.exp(-b * ti[n-1] ** c))
+        eq2 = term2 - b * (ti[n-1] ** c) * np.log(ti[n-1]) * np.exp(-b * ti[n-1] ** c) * sum_ki / (1 - np.exp(-b * ti[n-1] ** c))
+
+        return [eq1, eq2]
+
+    # Initial guesses for b and c
+    initial_guess = [0.5, 10]
+    sol = root(equations, initial_guess)
+
+    if sol.success:
+        b_hat, c_hat = sol.x
+        denom = 1 - np.exp(-b_hat * ti[-1] ** c_hat)
+        a_hat = np.sum(ki) / denom
+        print(f"تخمین پارامترها:\na = {a_hat:.4f}, b = {b_hat:.4f}, c = {c_hat:.4f}")
+    else:
+        print("حل معادلات همگرا نشد.")
+
+    return 0
 
 def estimate_log_logistics(data, t):
     
@@ -429,7 +477,7 @@ def build_tab_run_tests(page: Page):
         thread_statuses
     ], expand=True, horizontal_alignment='center')
 
-def build_tab_show_results(page: Page):
+def build_tab_growth_reliability(page: Page):
     results = load_results()
 
     rows = [
@@ -508,6 +556,7 @@ def build_tab_show_results(page: Page):
     )
 
     reliability_text = Text("")
+    mtbf_text = Text("", rtl=True)
 
     def calculate_reliability(e):
         reliability = 0
@@ -530,9 +579,21 @@ def build_tab_show_results(page: Page):
         reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         page.update()
 
+    def calculate_mtbf(e):
+        total_time = results[-1]['cumulative_time']
+        total_failures = results[-1]['cumulative_failures']
+        mtbf = float(total_time) / total_failures
+        if operational_time_unit.value == 'ساعت':
+            mtbf = mtbf / 3600
+        elif operational_time_unit.value == 'دقیقه':
+            mtbf = mtbf / 60
+        
+        mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        page.update()
+
     return Column([
         Container(
-            content=Text("محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
+            content=Text("محاسبه قابلیت اطمینان با مدل‌های رشد", style=TextThemeStyle.HEADLINE_MEDIUM),
             alignment=alignment.center,
             padding=30
         ),
@@ -565,12 +626,47 @@ def build_tab_show_results(page: Page):
                     padding=Padding(15, 15, 15, 15)
                 ),
                 on_click=calculate_reliability
+            ),
+            ElevatedButton(
+                text="محاسبه شاخص MTBF",
+                bgcolor=Colors.BLUE_400,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=calculate_mtbf
             )
         ], expand=True, alignment='center'),
         Container(
             content=reliability_text,
             alignment=alignment.center
-        )
+        ),
+        Container(
+            content=mtbf_text,
+            alignment=alignment.center
+        ),
+    ])
+
+def build_tab_test_and_estimation_reliability(page: Page):
+    return Column([
+        Container(
+            content=Text("محاسبه قابلیت اطمینان با مدل تست و تخمین ", style=TextThemeStyle.HEADLINE_MEDIUM),
+            alignment=alignment.center,
+            padding=30
+        ),
+        Row([
+            ElevatedButton(
+                text="محاسبه قابلیت اطمینان",
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click={}
+            )
+        ], expand=True, alignment='center'),
     ])
 
 def main(page: Page):
@@ -581,7 +677,8 @@ def main(page: Page):
     page.add(Tabs(tabs=[
         Tab(text="مدیریت آزمون‌ها و تولید داده", content=build_tab_manage_tests(page)),
         Tab(text="اجرای آزمون‌ها", content=build_tab_run_tests(page)),
-        Tab(text="محاسبه قابلیت اطمینان", content=build_tab_show_results(page))
+        Tab(text="محاسبه قابلیت اطمینان با مدل‌های رشد", content=build_tab_growth_reliability(page)),
+        Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=build_tab_test_and_estimation_reliability(page))
     ]))
 
 app(target=main)
