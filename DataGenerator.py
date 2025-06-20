@@ -43,7 +43,7 @@ def generate_input_data(test_name, tester_id, count, is_growth):
         model_dir = 'test_and_estimate'
         os.makedirs(model_dir, exist_ok=True)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_filename = f"{test_name}-tester{tester_id + 1}.csv"
+    csv_filename = f"{test_name}-tester{tester_id}.csv"
     csv_path = os.path.join(model_dir, csv_filename)
     csv_path = os.path.join(current_dir, csv_path)
     print(csv_path)
@@ -353,7 +353,7 @@ def build_tab_growth_model_run_tests(page: Page):
 
         for test_case in all_testcases:
             number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
-            csv_path = generate_input_data(test_case, testerId, number_of_sub_tests, True)
+            csv_path = generate_input_data(test_case, str(testerId + 1), number_of_sub_tests, True)
             test_case_path = all_testcases[test_case]["testcase_dir"]
             df = pd.read_csv(csv_path)
             df['result'] = ''
@@ -661,10 +661,13 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
         number_of_self_failures = 0
 
+        iteration = 1
+
         while(True):
             for test_case in all_testcases:
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
-                csv_path = generate_input_data(test_case, testerId, number_of_sub_tests, False)
+                tester_iteration = f"{testerId + 1}-{iteration}"
+                csv_path = generate_input_data(test_case, tester_iteration, number_of_sub_tests, False)
                 test_case_path = all_testcases[test_case]["testcase_dir"]
                 df = pd.read_csv(csv_path)
                 df['result'] = ''
@@ -707,6 +710,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 
             if time.time() >= total_execution_time:
                         break
+            
+            iteration += 1
 
         running_threads[testerId] = False
         thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests with {number_of_self_failures} failures"
