@@ -819,7 +819,7 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
 
                 if p_accept_H0 >= 1 - beta and p_accept_H1 <= alpha:
                     progress.visible = False
-                    test_plan.value = f"برنامه آزمون: بیشترین تعداد خرابی مجاز: {c} و کمترین مقدار زمان آزمون {round(T, 2)} {time_unit.value} می باشد."
+                    test_plan.value = f"برنامه آزمون: بیشترین تعداد خرابی مجاز {c} و کمترین مقدار زمان آزمون {round(T, 2)} {time_unit.value} می باشد."
                     page.update()
                     return
                     # return {
@@ -842,11 +842,11 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
             Row([
                 Text("ریسک مصرف کننده: "),
                 consumer_risk_percent,
-            ]),
+            ], width=200),
             Row([
                 Text("ریسک تولید کننده: "),
                 producer_risk_percent,
-            ]),
+            ], width=200),
             time_unit,
             ideal_mtbf,
             minimum_mtbf,
@@ -866,7 +866,7 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
     ], expand=True, horizontal_alignment='center')
 
 def main(page: Page):
-    page.title = "سیستم مدیریت و اجرای آزمون"
+    page.title = "ماژول محاسبه‌گر قابلیت اطمینان نرم‌افزار"
     page.scroll = ScrollMode.AUTO
     page.rtl = True
 
