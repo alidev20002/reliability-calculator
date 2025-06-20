@@ -35,10 +35,18 @@ def save_results(data):
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def generate_input_data(test_name, tester_id, count):
+def generate_input_data(test_name, tester_id, count, is_growth):
+    if is_growth:
+        model_dir = 'growth'
+        os.makedirs(model_dir, exist_ok=True)
+    else:
+        model_dir = 'test_and_estimate'
+        os.makedirs(model_dir, exist_ok=True)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     csv_filename = f"{test_name}-tester{tester_id + 1}.csv"
-    csv_path = os.path.join(current_dir, csv_filename)
+    csv_path = os.path.join(model_dir, csv_filename)
+    csv_path = os.path.join(current_dir, csv_path)
+    print(csv_path)
     # Calling LLM API with params (count, csv_path, test_name)
     return csv_path
 
@@ -345,7 +353,7 @@ def build_tab_growth_model_run_tests(page: Page):
 
         for test_case in all_testcases:
             number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
-            csv_path = generate_input_data(test_case, testerId, number_of_sub_tests)
+            csv_path = generate_input_data(test_case, testerId, number_of_sub_tests, True)
             test_case_path = all_testcases[test_case]["testcase_dir"]
             df = pd.read_csv(csv_path)
             df['result'] = ''
@@ -656,7 +664,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         while(True):
             for test_case in all_testcases:
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
-                csv_path = generate_input_data(test_case, testerId, number_of_sub_tests)
+                csv_path = generate_input_data(test_case, testerId, number_of_sub_tests, False)
                 test_case_path = all_testcases[test_case]["testcase_dir"]
                 df = pd.read_csv(csv_path)
                 df['result'] = ''
