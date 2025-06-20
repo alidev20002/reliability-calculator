@@ -9,7 +9,8 @@ import threading
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from scipy.optimize import minimize, curve_fit, root
+from scipy.optimize import curve_fit, root
+from scipy.stats import poisson
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
@@ -781,6 +782,89 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         mtbf_text
     ], expand=True, horizontal_alignment='center')
 
+def build_tab_test_and_estimation_calculate_test_time(page: Page):
+    consumer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0)
+    producer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0)
+    time_unit = Dropdown(
+        label="واحد زمان",
+        options=[
+            dropdown.Option("ثانیه"),
+            dropdown.Option("دقیقه"),
+            dropdown.Option("ساعت")
+        ],
+        value="ثانیه"
+    )
+    ideal_mtbf = TextField(label="میانگین زمان بین خرابی مطلوب", value="10", keyboard_type=KeyboardType.NUMBER)
+    minimum_mtbf = TextField(label="پایین ترین مقدار زمان بین خرابی مطلوب", value="10", keyboard_type=KeyboardType.NUMBER)
+
+    test_plan = Text("")
+
+    progress = ProgressBar(width=100, visible=False)
+
+    def find_test_plan(e, max_c=100, max_T=100000, step=50):
+        alpha = consumer_risk_percent.value / 100.0
+        beta = producer_risk_percent.value / 100.0
+        theta0 = int(ideal_mtbf.value)
+        theta1 = int(minimum_mtbf.value)
+        progress.visible = True
+        test_plan.value = "در حال محاسبه، لطفا صبور باشید..."
+        page.update()
+        for c in range(1, max_c + 1):
+            for T in np.arange(0, max_T, step):
+                mu1 = T / theta1
+                mu0 = T / theta0
+
+                p_accept_H1 = poisson.cdf(c, mu1)
+                p_accept_H0 = poisson.cdf(c, mu0)
+
+                if p_accept_H0 >= 1 - beta and p_accept_H1 <= alpha:
+                    progress.visible = False
+                    test_plan.value = f"برنامه آزمون: بیشترین تعداد خرابی مجاز: {c} و کمترین مقدار زمان آزمون {round(T, 2)} {time_unit.value} می باشد."
+                    page.update()
+                    return
+                    # return {
+                    #     "acceptance_failure_number (c)": c,
+                    #     "test_duration (T)": round(T, 2),
+                    #     "P_accept_under_H1": round(p_accept_H1, 3),
+                    #     "P_accept_under_H0": round(p_accept_H0, 3)
+                    # }
+        progress.visible = False
+        test_plan.value = "متاسفانه برنامه آزمون مناسبی پیدا نشد."
+        page.update()
+
+    return Column([
+        Container(
+            content=Text("محاسبه زمان مورد نیاز برای آزمون", style=TextThemeStyle.HEADLINE_MEDIUM),
+            alignment=alignment.center,
+            padding=30
+        ),
+        Column([
+            Row([
+                Text("ریسک مصرف کننده: "),
+                consumer_risk_percent,
+            ]),
+            Row([
+                Text("ریسک تولید کننده: "),
+                producer_risk_percent,
+            ]),
+            time_unit,
+            ideal_mtbf,
+            minimum_mtbf,
+            ElevatedButton(
+                text="محاسبه",
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=find_test_plan
+            )
+        ], width=450, horizontal_alignment='center'),
+        test_plan,
+        progress
+    ], expand=True, horizontal_alignment='center')
+
 def main(page: Page):
     page.title = "سیستم مدیریت و اجرای آزمون"
     page.scroll = ScrollMode.AUTO
@@ -792,6 +876,7 @@ def main(page: Page):
     ])
 
     test_and_estimation_method_tabs = Tabs(tabs=[
+        Tab(text="محاسبه زمان مورد نیاز برای آزمون", content=build_tab_test_and_estimation_calculate_test_time(page)),
         Tab(text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان", content=build_tab_test_and_estimation_model_run_tests(page)),
     ])
 
