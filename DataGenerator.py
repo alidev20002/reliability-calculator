@@ -91,27 +91,6 @@ def estimate_goel_okumoto(data, t):
     return math.exp(-f * t)
 
 def estimate_weibull(data, t):
-    def weibull_pdf(time_array, a, b, c):
-        return a * b * c * (b * time_array) ** (c - 1) * np.exp(- (b * time_array) ** c)
-
-    def neg_log_likelihood(params, time_array):
-        a, b, c = params
-        if a <= 0 or b <= 0 or c <= 0:
-            return np.inf 
-        likelihoods = weibull_pdf(time_array, a, b, c)
-        likelihoods = np.where(likelihoods <= 1e-10, 1e-10, likelihoods)
-        return -np.sum(np.log(likelihoods))
-    
-    cumulative_time = np.array([item["cumulative_time"] for item in data])
-    initial_guess = [12, 0.1, 1.0]
-    result = minimize(neg_log_likelihood, initial_guess, args=(cumulative_time,), method='L-BFGS-B', bounds=[(1e-3, None)]*3)
-    a, b, c = result.x
-    total_time = data[-1]['cumulative_time']
-    f = (a * b * c) * math.pow((b * total_time), c-1) * math.exp(-math.pow((b * total_time), c))
-
-    return math.exp(-f * t)
-
-def weibull_2(data, t):
     # ti: time intervals, ki: number of faults observed
     # time intervals t_i
     ti = np.array([item["cumulative_time"] for item in data]) 
@@ -146,18 +125,22 @@ def weibull_2(data, t):
         return [eq1, eq2]
 
     # Initial guesses for b and c
-    initial_guess = [0.5, 10]
+    initial_guess = [0.01, 1.0]
     sol = root(equations, initial_guess)
 
     if sol.success:
-        b_hat, c_hat = sol.x
-        denom = 1 - np.exp(-b_hat * ti[-1] ** c_hat)
-        a_hat = np.sum(ki) / denom
-        print(f"تخمین پارامترها:\na = {a_hat:.4f}, b = {b_hat:.4f}, c = {c_hat:.4f}")
+        b, c = sol.x
+        denom = 1 - np.exp(-b * ti[-1] ** c)
+        a = np.sum(ki) / denom
+        print(f"تخمین پارامترها:\na = {a:.4f}, b = {b:.4f}, c = {c:.4f}")
     else:
         print("حل معادلات همگرا نشد.")
-
-    return 0
+        return 0, 'در حال حاضر استفاده از این مدل توصیه نمی‌شود'
+    
+    total_time = data[-1]['cumulative_time']
+    
+    f = (a * b * c) * ((b * total_time) ** (c-1)) * math.exp(-((b * total_time) ** c))
+    return math.exp(-f * t), None
 
 def estimate_log_logistics(data, t):
     
@@ -706,6 +689,7 @@ def build_tab_growth_reliability(page: Page):
 
     def calculate_reliability(e):
         reliability = 0
+        error = None
         if operational_time_unit.value == 'ساعت':
             operational_time_value = int(operational_time.value) * 60 * 60
         elif operational_time_unit.value == 'دقیقه':
@@ -716,13 +700,16 @@ def build_tab_growth_reliability(page: Page):
         if selected_model.value == 'مدل Goel Okumoto':
             reliability = estimate_goel_okumoto(results, operational_time_value)
         elif selected_model.value == 'مدل Weibull':
-            reliability = estimate_weibull(results, operational_time_value)
+            reliability, error = estimate_weibull(results, operational_time_value)
         elif selected_model.value == 'مدل Log-Logistics':
             reliability = estimate_log_logistics(results, operational_time_value)
         elif selected_model.value == 'مدل Duane':
             reliability = estimate_duane(results, operational_time_value)
-
-        reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        
+        if error:
+            reliability_text.value = error
+        else:
+            reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         page.update()
 
     def calculate_mtbf(e):
