@@ -11,9 +11,11 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit, root
 from scipy.stats import poisson
+import requests
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
+LLM_GENERATE_DATA_API_URL = 'http://localhost:5000/generate_test_cases'
 
 def load_all_testcases():
     if os.path.exists(SETTINGS_FILE):
@@ -48,6 +50,24 @@ def generate_input_data(test_name, tester_id, count, is_growth):
     csv_path = os.path.join(current_dir, csv_path)
     print(csv_path)
     # Calling LLM API with params (count, csv_path, test_name)
+    request_body = {
+        'katalon_path': '',
+        'output_csv_path': csv_path,
+        'num_test_cases': count
+    }
+
+    try:
+        response = requests.post(url=LLM_GENERATE_DATA_API_URL, json=request_body)
+        if response.status_code == 200:
+            print("POST request successful!")
+            return csv_path
+        else:
+            print(f"POST request failed with status code: {response.status_code}")
+            print("Response content:", response.text)
+    except:
+        pass
+
+    # TODO: return None
     return csv_path
 
 def plot_failure_rate_change(data):
