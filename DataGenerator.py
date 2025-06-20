@@ -649,58 +649,63 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     thread_statuses = Column()
 
     def start_tester_test(testerId):
-        nonlocal number_of_failures, total_execution_time, running_threads
-        start_time = time.time()
+        nonlocal number_of_failures, running_threads
 
         number_of_self_failures = 0
 
-        for test_case in all_testcases:
-            number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
-            csv_path = generate_input_data(test_case, testerId, number_of_sub_tests)
-            test_case_path = all_testcases[test_case]["testcase_dir"]
-            df = pd.read_csv(csv_path)
-            df['result'] = ''
+        while(True):
+            for test_case in all_testcases:
+                number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
+                csv_path = generate_input_data(test_case, testerId, number_of_sub_tests)
+                test_case_path = all_testcases[test_case]["testcase_dir"]
+                df = pd.read_csv(csv_path)
+                df['result'] = ''
 
-            for idx, row in df.iterrows():
-                env = os.environ.copy()
-                env.update(row.dropna().astype(str).to_dict())
-                try:
-                    result = subprocess.run(
-                        ["python", test_case_path],
-                        env=env,
-                        capture_output=True,
-                        text=True, timeout=300
-                    )
-                    output = result.stdout.strip().splitlines()
-                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+                for idx, row in df.iterrows():
+                    env = os.environ.copy()
+                    env.update(row.dropna().astype(str).to_dict())
+                    try:
+                        result = subprocess.run(
+                            ["python", test_case_path],
+                            env=env,
+                            capture_output=True,
+                            text=True, timeout=300
+                        )
+                        output = result.stdout.strip().splitlines()
+                        outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
 
-                    df.at[idx, "result"] = outcome
-                    df.to_csv(csv_path, index=False)
+                        df.at[idx, "result"] = outcome
+                        df.to_csv(csv_path, index=False)
 
-                    tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
-                    thread_statuses.controls[testerId].value = f"Tester {testerId+1}: {tester_status}"
-                    page.update()
+                        tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
+                        thread_statuses.controls[testerId].value = f"Tester {testerId+1}: {tester_status}"
+                        page.update()
 
-                    if outcome == 'fail':
+                        if outcome == 'fail':
+                            number_of_failures += 1
+                            number_of_self_failures += 1
+                    except Exception as e:
+                        print(e)
                         number_of_failures += 1
                         number_of_self_failures += 1
-                except Exception as e:
-                    print(e)
-                    number_of_failures += 1
-                    number_of_self_failures += 1
-            
-        elapsed = int(time.time() - start_time)
-        elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
 
-        total_execution_time += elapsed
+                    if time.time() >= total_execution_time:
+                        df = df.iloc[:idx+1]
+                        df.to_csv(csv_path, index=False)
+                        break
+
+                if time.time() >= total_execution_time:
+                        break
+                
+            if time.time() >= total_execution_time:
+                        break
+
         running_threads[testerId] = False
-
-        thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests with {number_of_self_failures} failures -- Elapsed Time: {elapsed_formatted}"
+        thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests with {number_of_self_failures} failures"
         page.update()
 
     def run_testcase(e):
         nonlocal running_threads, number_of_failures, total_execution_time
-        total_execution_time = 0
         number_of_failures = 0
         running_threads = [False] * int(number_of_testers.value)
         thread_statuses.controls.clear()
@@ -723,11 +728,20 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             operational_time_value = int(operational_time.value) * 60
         else:
             operational_time_value = int(operational_time.value)
+
+        if operational_time_unit.value == 'ساعت':
+            total_execution_time = int(test_duration.value) * 60 * 60
+        elif operational_time_unit.value == 'دقیقه':
+            total_execution_time = int(test_duration.value) * 60
+        else:
+            total_execution_time = int(test_duration.value)
+
+        all_testers_time = total_execution_time  * int(number_of_testers.value)
         
-        reliability = test_and_estimation_reliability(number_of_failures, total_execution_time, operational_time_value)
+        reliability = test_and_estimation_reliability(number_of_failures, all_testers_time, operational_time_value)
         reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
 
-        mtbf = float(total_execution_time) / number_of_failures
+        mtbf = float(all_testers_time) / number_of_failures
         if operational_time_unit.value == 'ساعت':
             mtbf = mtbf / 3600
         elif operational_time_unit.value == 'دقیقه':
@@ -736,7 +750,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
         page.update()
 
-    number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
+    test_duration = TextField(label="مقدار زمان آزمون", value="10", keyboard_type=KeyboardType.NUMBER)
+    number_of_tests = TextField(label="تعداد آزمون", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
     operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
@@ -760,6 +775,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             padding=30
         ),
         Column([
+            test_duration,
             number_of_tests,
             number_of_testers,
             Row([
