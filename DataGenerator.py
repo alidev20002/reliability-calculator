@@ -17,6 +17,9 @@ SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'results.json'
 LLM_GENERATE_DATA_API_URL = 'http://localhost:5000/generate_test_cases'
 
+os.makedirs('growth', exist_ok=True)
+os.makedirs('test_and_estimate', exist_ok=True)
+
 def load_all_testcases():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
@@ -40,10 +43,9 @@ def save_results(data):
 def generate_input_data(test_name, tester_id, count, is_growth):
     if is_growth:
         model_dir = 'growth'
-        os.makedirs(model_dir, exist_ok=True)
     else:
         model_dir = 'test_and_estimate'
-        os.makedirs(model_dir, exist_ok=True)
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     csv_filename = f"{test_name}-tester{tester_id}.csv"
     csv_path = os.path.join(model_dir, csv_filename)
@@ -80,8 +82,8 @@ def plot_failure_rate_change(data):
     ax.set_ylabel("Cumulative Failures")
     ax.set_title("Failure Rate vs Cumulative Failures")
 
-    os.makedirs("plots", exist_ok=True)
-    filename = f"plots/plot_failure_rate_change.png"
+    os.makedirs('growth/plots', exist_ok=True)
+    filename = f"growth/plots/plot_failure_rate_change.png"
     plt.savefig(filename)
     plt.close(fig)
 
@@ -97,8 +99,8 @@ def plot_failure_detection_rate(data):
     ax.set_ylabel("Number of Failures")
     ax.set_title("Number of Failures vs Cumulative Time")
 
-    os.makedirs("plots", exist_ok=True)
-    filename = "plots/plot_failure_detection_rate.png"
+    os.makedirs("growth/plots", exist_ok=True)
+    filename = "growth/plots/plot_failure_detection_rate.png"
     plt.savefig(filename)
     plt.close(fig)
 
@@ -914,6 +916,60 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
         progress
     ], expand=True, horizontal_alignment='center')
 
+def build_tab_test_and_estimation_modify_results(page: Page):
+    csv_files_list = ListView(spacing=10, padding=20, auto_scroll=True, width=400)
+    csv_directory = 'test_and_estimate'
+    files = os.listdir(csv_directory)
+    for file_name in files:
+        if file_name.lower().endswith(".csv"):
+            csv_files_list.controls.append(
+                ListTile(
+                    title=Text(file_name),
+                    trailing=Icon(name="EDIT", color="blue"),
+                    on_click=lambda e, name=file_name: select_results_file(name)
+                )
+            )
+
+    data_table = DataTable(columns=[DataColumn(Text("داده‌ای برای نمایش وجود ندارد"))])
+    
+    def select_results_file(filename):
+        nonlocal data_table
+
+        df = pd.read_csv(os.path.join(csv_directory, filename))
+        columns = [DataColumn(Text(col)) for col in df.columns]
+
+        rows = []
+        for index, row in df.iterrows():
+            cells = [DataCell(Text(str(row[col]))) for col in df.columns]
+            rows.append(DataRow(cells=cells))
+
+        data_table.columns = columns
+        data_table.rows = rows
+
+        page.update()
+
+    return Column([
+        Container(
+            content=Text("اصلاح دستی نتایج", style=TextThemeStyle.HEADLINE_MEDIUM),
+            alignment=alignment.center,
+            padding=30
+        ),
+        Row([
+            Column([
+                Text('لیست فایل‌های نتایج'),
+                csv_files_list
+            ], horizontal_alignment='center', width=400),
+            Container(
+                content=Column([data_table], scroll=ScrollMode.AUTO),
+                height=400,
+                bgcolor=Colors.GREY_100,
+                padding=10,
+                border_radius=10,
+                border=border.all(1, Colors.GREY_300),
+            ),
+        ], expand=True),
+    ])
+
 def main(page: Page):
     page.title = "ماژول محاسبه‌گر قابلیت اطمینان نرم‌افزار"
     page.scroll = ScrollMode.AUTO
@@ -927,6 +983,7 @@ def main(page: Page):
     test_and_estimation_method_tabs = Tabs(tabs=[
         Tab(text="محاسبه زمان مورد نیاز برای آزمون", content=build_tab_test_and_estimation_calculate_test_time(page)),
         Tab(text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان", content=build_tab_test_and_estimation_model_run_tests(page)),
+        Tab(text="اصلاح دستی نتایج", content=build_tab_test_and_estimation_modify_results(page)),
     ])
 
     page.add(Tabs(tabs=[
