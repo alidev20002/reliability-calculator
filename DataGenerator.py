@@ -464,148 +464,6 @@ def build_tab_growth_model_run_tests(page: Page):
         thread_statuses
     ], expand=True, horizontal_alignment='center')
 
-def build_tab_test_and_estimation_model_run_tests(page: Page):
-    all_testcases = load_all_testcases()
-
-    number_of_failures = 0
-    total_execution_time = 0
-    running_threads = []
-    thread_statuses = Column()
-
-    def start_tester_test(testerId):
-        nonlocal number_of_failures, total_execution_time, running_threads
-        start_time = time.time()
-
-        number_of_self_failures = 0
-
-        for test_case in all_testcases:
-            number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
-            csv_path = generate_input_data(test_case, testerId, number_of_sub_tests)
-            test_case_path = all_testcases[test_case]["testcase_dir"]
-            df = pd.read_csv(csv_path)
-            df['result'] = ''
-
-            for idx, row in df.iterrows():
-                env = os.environ.copy()
-                env.update(row.dropna().astype(str).to_dict())
-                try:
-                    result = subprocess.run(
-                        ["python", test_case_path],
-                        env=env,
-                        capture_output=True,
-                        text=True, timeout=300
-                    )
-                    output = result.stdout.strip().splitlines()
-                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
-
-                    df.at[idx, "result"] = outcome
-                    df.to_csv(csv_path, index=False)
-
-                    tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
-                    thread_statuses.controls[testerId].value = f"Tester {testerId+1}: {tester_status}"
-                    page.update()
-
-                    if outcome == 'fail':
-                        number_of_failures += 1
-                        number_of_self_failures += 1
-                except Exception as e:
-                    print(e)
-                    number_of_failures += 1
-                    number_of_self_failures += 1
-            
-        elapsed = int(time.time() - start_time)
-        elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
-
-        total_execution_time += elapsed
-        running_threads[testerId] = False
-
-        thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests with {number_of_self_failures} failures -- Elapsed Time: {elapsed_formatted}"
-        page.update()
-
-    def run_testcase(e):
-        nonlocal running_threads, number_of_failures, total_execution_time
-        total_execution_time = 0
-        number_of_failures = 0
-        running_threads = [False] * int(number_of_testers.value)
-        thread_statuses.controls.clear()
-        for i in range(int(number_of_testers.value)):
-            thread_statuses.controls.append(Text(f"Tester {i+1}: Not started", size=18))
-            t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
-            t.start()
-            running_threads[i] = True
-        
-        page.update()
-
-        while (True in running_threads):
-            pass
-
-        thread_statuses.controls.append(Text("All Tests Finished"))
-        reliability = 0
-        if operational_time_unit.value == 'ساعت':
-            operational_time_value = int(operational_time.value) * 60 * 60
-        elif operational_time_unit.value == 'دقیقه':
-            operational_time_value = int(operational_time.value) * 60
-        else:
-            operational_time_value = int(operational_time.value)
-        
-        reliability = test_and_estimation_reliability(number_of_failures, total_execution_time, operational_time_value)
-        reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
-
-        mtbf = float(total_execution_time) / number_of_failures
-        if operational_time_unit.value == 'ساعت':
-            mtbf = mtbf / 3600
-        elif operational_time_unit.value == 'دقیقه':
-            mtbf = mtbf / 60
-        
-        mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
-        page.update()
-
-    number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
-    number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
-
-    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
-    operational_time_unit = Dropdown(
-        label="واحد زمان",
-        options=[
-            dropdown.Option("ثانیه"),
-            dropdown.Option("دقیقه"),
-            dropdown.Option("ساعت")
-        ],
-        value="ثانیه"
-    )
-
-    reliability_text = Text("")
-    mtbf_text = Text("", rtl=True)
-
-    return Column([
-        Container(
-            content=Text("اجرای آزمون‌ها و محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
-            alignment=alignment.center,
-            padding=30
-        ),
-        Column([
-            number_of_tests,
-            number_of_testers,
-            Row([
-                operational_time,
-                operational_time_unit
-            ], expand=True),
-            ElevatedButton(
-                text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
-                bgcolor=Colors.BLUE_500,
-                color=Colors.WHITE,
-                style=ButtonStyle(
-                    shape= RoundedRectangleBorder(8),
-                    padding=Padding(15, 15, 15, 15)
-                ),
-                on_click=run_testcase
-            )
-        ], width=450, horizontal_alignment='center'),
-        thread_statuses,
-        reliability_text,
-        mtbf_text
-    ], expand=True, horizontal_alignment='center')
-
 def build_tab_growth_reliability(page: Page):
     results = load_results()
 
@@ -781,26 +639,147 @@ def build_tab_growth_reliability(page: Page):
         ),
     ])
 
-def build_tab_test_and_estimation_reliability(page: Page):
+def build_tab_test_and_estimation_model_run_tests(page: Page):
+    all_testcases = load_all_testcases()
+
+    number_of_failures = 0
+    total_execution_time = 0
+    running_threads = []
+    thread_statuses = Column()
+
+    def start_tester_test(testerId):
+        nonlocal number_of_failures, total_execution_time, running_threads
+        start_time = time.time()
+
+        number_of_self_failures = 0
+
+        for test_case in all_testcases:
+            number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
+            csv_path = generate_input_data(test_case, testerId, number_of_sub_tests)
+            test_case_path = all_testcases[test_case]["testcase_dir"]
+            df = pd.read_csv(csv_path)
+            df['result'] = ''
+
+            for idx, row in df.iterrows():
+                env = os.environ.copy()
+                env.update(row.dropna().astype(str).to_dict())
+                try:
+                    result = subprocess.run(
+                        ["python", test_case_path],
+                        env=env,
+                        capture_output=True,
+                        text=True, timeout=300
+                    )
+                    output = result.stdout.strip().splitlines()
+                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+
+                    df.at[idx, "result"] = outcome
+                    df.to_csv(csv_path, index=False)
+
+                    tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
+                    thread_statuses.controls[testerId].value = f"Tester {testerId+1}: {tester_status}"
+                    page.update()
+
+                    if outcome == 'fail':
+                        number_of_failures += 1
+                        number_of_self_failures += 1
+                except Exception as e:
+                    print(e)
+                    number_of_failures += 1
+                    number_of_self_failures += 1
+            
+        elapsed = int(time.time() - start_time)
+        elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
+
+        total_execution_time += elapsed
+        running_threads[testerId] = False
+
+        thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests with {number_of_self_failures} failures -- Elapsed Time: {elapsed_formatted}"
+        page.update()
+
+    def run_testcase(e):
+        nonlocal running_threads, number_of_failures, total_execution_time
+        total_execution_time = 0
+        number_of_failures = 0
+        running_threads = [False] * int(number_of_testers.value)
+        thread_statuses.controls.clear()
+        for i in range(int(number_of_testers.value)):
+            thread_statuses.controls.append(Text(f"Tester {i+1}: Not started", size=18))
+            t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
+            t.start()
+            running_threads[i] = True
+        
+        page.update()
+
+        while (True in running_threads):
+            pass
+
+        thread_statuses.controls.append(Text("All Tests Finished"))
+        reliability = 0
+        if operational_time_unit.value == 'ساعت':
+            operational_time_value = int(operational_time.value) * 60 * 60
+        elif operational_time_unit.value == 'دقیقه':
+            operational_time_value = int(operational_time.value) * 60
+        else:
+            operational_time_value = int(operational_time.value)
+        
+        reliability = test_and_estimation_reliability(number_of_failures, total_execution_time, operational_time_value)
+        reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+
+        mtbf = float(total_execution_time) / number_of_failures
+        if operational_time_unit.value == 'ساعت':
+            mtbf = mtbf / 3600
+        elif operational_time_unit.value == 'دقیقه':
+            mtbf = mtbf / 60
+        
+        mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        page.update()
+
+    number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
+    number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
+
+    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
+    operational_time_unit = Dropdown(
+        label="واحد زمان",
+        options=[
+            dropdown.Option("ثانیه"),
+            dropdown.Option("دقیقه"),
+            dropdown.Option("ساعت")
+        ],
+        value="ثانیه"
+    )
+
+    reliability_text = Text("")
+    mtbf_text = Text("", rtl=True)
+
     return Column([
         Container(
-            content=Text("محاسبه قابلیت اطمینان با مدل تست و تخمین ", style=TextThemeStyle.HEADLINE_MEDIUM),
+            content=Text("اجرای آزمون‌ها و محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
             alignment=alignment.center,
             padding=30
         ),
-        Row([
+        Column([
+            number_of_tests,
+            number_of_testers,
+            Row([
+                operational_time,
+                operational_time_unit
+            ], expand=True),
             ElevatedButton(
-                text="محاسبه قابلیت اطمینان",
+                text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
                 bgcolor=Colors.BLUE_500,
                 color=Colors.WHITE,
                 style=ButtonStyle(
                     shape= RoundedRectangleBorder(8),
                     padding=Padding(15, 15, 15, 15)
                 ),
-                on_click={}
+                on_click=run_testcase
             )
-        ], expand=True, alignment='center'),
-    ])
+        ], width=450, horizontal_alignment='center'),
+        thread_statuses,
+        reliability_text,
+        mtbf_text
+    ], expand=True, horizontal_alignment='center')
 
 def main(page: Page):
     page.title = "سیستم مدیریت و اجرای آزمون"
