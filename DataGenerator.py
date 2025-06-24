@@ -931,22 +931,113 @@ def build_tab_test_and_estimation_modify_results(page: Page):
             )
 
     data_table = DataTable(columns=[DataColumn(Text("داده‌ای برای نمایش وجود ندارد"))])
+    df = pd.DataFrame()
+    selected_csv_path = ''
     
     def select_results_file(filename):
-        nonlocal data_table
+        nonlocal data_table, df, selected_csv_path
 
+        save_message.value = ''
+        selected_csv_path = os.path.join(csv_directory, filename)
         df = pd.read_csv(os.path.join(csv_directory, filename))
         columns = [DataColumn(Text(col)) for col in df.columns]
 
         rows = []
         for index, row in df.iterrows():
-            cells = [DataCell(Text(str(row[col]))) for col in df.columns]
+            cells = [
+                DataCell(Text(str(row[col]))) if col != 'result'
+                else DataCell(
+                    Dropdown(
+                        options=[
+                            dropdown.Option("پاس شده"),
+                            dropdown.Option("شکست خورده"),
+                        ],
+                        value="پاس شده" if str(row[col]) == "pass" else "شکست خورده",
+                        on_change=lambda e, idx=index: modify_test_result(e, idx)
+                    )
+                )
+                for col in df.columns
+            ]
+
             rows.append(DataRow(cells=cells))
 
         data_table.columns = columns
         data_table.rows = rows
 
         page.update()
+
+        def modify_test_result(e, row_index):
+            save_message.value = ''
+            page.update()
+
+            modified_result = 'pass' if e.control.value == 'پاس شده' else 'fail' 
+            df.at[row_index, 'result'] = modified_result
+            
+            
+    def save_modified_results(e):
+        if df.empty:
+            save_message.value = 'هیچ فایلی انتخاب نشده است'
+            page.update()
+            return
+        df.to_csv(selected_csv_path, index=False)
+        
+        save_message.value = 'تغییرات با موفقیت ذخیره شد'
+        page.update()
+
+    def calculate_reliability(e):
+        total_failures = 0
+        for filename in os.listdir(csv_directory):
+            if filename.endswith('.csv'):
+                file_path = os.path.join(csv_directory, filename)
+                try:
+                    data = pd.read_csv(file_path)
+                    fail_rows = data[data['result'].astype(str).str.contains('fail', case=False, na=False)]
+                    total_failures += len(fail_rows)
+                except Exception as e:
+                    print(f"Error processing {filename}: {e}")
+        reliability = 0
+        if operational_time_unit.value == 'ساعت':
+            operational_time_value = int(operational_time.value) * 60 * 60
+        elif operational_time_unit.value == 'دقیقه':
+            operational_time_value = int(operational_time.value) * 60
+        else:
+            operational_time_value = int(operational_time.value)
+
+        if operational_time_unit.value == 'ساعت':
+            total_execution_time = int(test_duration.value) * 60 * 60
+        elif operational_time_unit.value == 'دقیقه':
+            total_execution_time = int(test_duration.value) * 60
+        else:
+            total_execution_time = int(test_duration.value)
+        
+        reliability = test_and_estimation_reliability(total_failures, total_execution_time, operational_time_value)
+        reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+
+        mtbf = float(total_execution_time) / total_failures
+        if operational_time_unit.value == 'ساعت':
+            mtbf = mtbf / 3600
+        elif operational_time_unit.value == 'دقیقه':
+            mtbf = mtbf / 60
+        
+        mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        page.update()
+
+    test_duration = TextField(label="مقدار زمان آزمون", value="10", keyboard_type=KeyboardType.NUMBER, width=200)
+    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
+    operational_time_unit = Dropdown(
+        label="واحد زمان",
+        options=[
+            dropdown.Option("ثانیه"),
+            dropdown.Option("دقیقه"),
+            dropdown.Option("ساعت")
+        ],
+        value="ثانیه"
+    )
+
+    save_message = Text("")
+
+    reliability_text = Text("")
+    mtbf_text = Text("", rtl=True)
 
     return Column([
         Container(
@@ -957,7 +1048,18 @@ def build_tab_test_and_estimation_modify_results(page: Page):
         Row([
             Column([
                 Text('لیست فایل‌های نتایج'),
-                csv_files_list
+                csv_files_list,
+                ElevatedButton(
+                    text="ذخیره تغییرات فایل انتخاب شده",
+                    bgcolor=Colors.BLUE_500,
+                    color=Colors.WHITE,
+                    style=ButtonStyle(
+                        shape= RoundedRectangleBorder(8),
+                        padding=Padding(15, 15, 15, 15)
+                    ),
+                    on_click=save_modified_results
+                ),
+                save_message
             ], horizontal_alignment='center', width=400),
             Container(
                 content=Column([data_table], scroll=ScrollMode.AUTO),
@@ -967,8 +1069,25 @@ def build_tab_test_and_estimation_modify_results(page: Page):
                 border_radius=10,
                 border=border.all(1, Colors.GREY_300),
             ),
-        ], expand=True),
-    ])
+        ], expand=True, alignment='center'),
+        test_duration,
+        Row([
+            operational_time,
+            operational_time_unit
+        ], expand=True, alignment='center'),
+        ElevatedButton(
+            text="محاسبه قابلیت اطمینان",
+            bgcolor=Colors.BLUE_500,
+            color=Colors.WHITE,
+            style=ButtonStyle(
+                shape= RoundedRectangleBorder(8),
+                padding=Padding(15, 15, 15, 15)
+            ),
+            on_click=calculate_reliability
+        ),
+        reliability_text,
+        mtbf_text
+    ], expand=True, horizontal_alignment='center')
 
 def main(page: Page):
     page.title = "ماژول محاسبه‌گر قابلیت اطمینان نرم‌افزار"
