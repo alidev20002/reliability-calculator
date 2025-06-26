@@ -257,7 +257,7 @@ def build_tab_manage_tests(page: Page):
     max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
     percent_input = Slider(min=0, max=max_percent_value, divisions=max_percent_value, label="{value}%", value=0)
     new_test_name_input = TextField(label="نام سناریو جدید")
-    test_list_column = Column(scroll=ScrollMode.AUTO)
+    test_list_column = Column(scroll=ScrollMode.AUTO, height=300)
     user_message = Text()
 
     def refresh_test_list():
@@ -277,6 +277,7 @@ def build_tab_manage_tests(page: Page):
     def delete_testcase(name):
         all_testcases.pop(name, None)
         save_all_testcases(all_testcases)
+        user_message.value = f"سناریو '{name}' حذف شد."
         refresh_test_list()
 
     def save_testcase(e):
@@ -286,6 +287,19 @@ def build_tab_manage_tests(page: Page):
             user_message.color = Colors.RED
             page.update()
             return
+        
+        if not testcase_dir_input.value:
+            user_message.value = "لطفاً مسیر دایرکتوری سناریو آزمون را مشخص کنید."
+            user_message.color = Colors.RED
+            page.update()
+            return
+        
+        if percent_input.value == 0:
+            user_message.value = "ضریب اهمیت سناریوی آزمون نمی‌تواند صفر باشد."
+            user_message.color = Colors.RED
+            page.update()
+            return
+        
         all_testcases[new_name] = {
             "testcase_dir": testcase_dir_input.value,
             "percent": int(percent_input.value),
@@ -327,18 +341,23 @@ def build_tab_manage_tests(page: Page):
 
     return Column([
         Container(
-            content=Text("🗂️ مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
+            content=Text("مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
             alignment=alignment.center,
             padding=30
         ),
         Row([
-            Column([
-                selected_test,
+            Container(
                 Column([
-                    Text("لیست سناریوها 📋", style=TextThemeStyle.TITLE_MEDIUM),
-                    test_list_column,
-                ])
-            ], width=300, horizontal_alignment="center", alignment="start", spacing=50),
+                    selected_test,
+                    Column([
+                        Text("لیست سناریوها", style=TextThemeStyle.TITLE_MEDIUM),
+                        test_list_column,
+                    ])
+                ], width=300, horizontal_alignment="center", alignment="start", spacing=50),
+                bgcolor="#dfdfdf",
+                padding=30
+            ),
+            
             Column([
                 new_test_name_input,
                 testcase_dir_row,
@@ -1106,7 +1125,7 @@ def main(page: Page):
     ])
 
     page.add(Tabs(tabs=[
-        Tab(text="مدیریت آزمون‌ها و تولید داده", content=build_tab_manage_tests(page)),
+        Tab(text="مدیریت آزمون‌ها", content=build_tab_manage_tests(page)),
         Tab(text="محاسبه قابلیت اطمینان با مدل‌های رشد", content=growth_method_tabs),
         Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=test_and_estimation_method_tabs)
     ]))
