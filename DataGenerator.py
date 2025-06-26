@@ -714,7 +714,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     number_of_failures = 0
     total_execution_time = 0
     running_threads = []
-    thread_statuses = Column()
+    thread_statuses = Column(width=600, height=800, spacing=10, scroll=ScrollMode.AUTO)
 
     def start_tester_test(testerId):
         nonlocal number_of_failures, running_threads
@@ -725,6 +725,9 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
         while(True):
             for test_case in all_testcases:
+                thread_statuses.controls[testerId].subtitle = Text(f"در حال ساخت داده آزمون برای سناریوی {test_case}")
+                page.update()
+
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
                 tester_iteration = f"{testerId + 1}-{iteration}"
                 csv_path = generate_input_data(test_case, tester_iteration, number_of_sub_tests, False)
@@ -733,6 +736,9 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 df['result'] = ''
 
                 for idx, row in df.iterrows():
+                    thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case} -> در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
+                    page.update()
+
                     env = os.environ.copy()
                     env.update(row.dropna().astype(str).to_dict())
                     try:
@@ -747,10 +753,6 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
                         df.at[idx, "result"] = outcome
                         df.to_csv(csv_path, index=False)
-
-                        tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
-                        thread_statuses.controls[testerId].value = f"Tester {testerId+1}: {tester_status}"
-                        page.update()
 
                         if outcome == 'fail':
                             number_of_failures += 1
@@ -774,7 +776,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             iteration += 1
 
         running_threads[testerId] = False
-        thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests with {number_of_self_failures} failures"
+        thread_statuses.controls[testerId].subtitle = Text(f"انجام آزمون با مشاهده {number_of_self_failures} خطا پایان یافت")
+        thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
         page.update()
 
     def run_testcase(e):
@@ -782,8 +785,17 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         number_of_failures = 0
         running_threads = [False] * int(number_of_testers.value)
         thread_statuses.controls.clear()
+        start_tests_button.disabled = True
+
         for i in range(int(number_of_testers.value)):
-            thread_statuses.controls.append(Text(f"Tester {i+1}: Not started", size=18))
+            thread_statuses.controls.append(
+                ListTile(
+                    title=Text(f"آزمونگر {i+1}"),
+                    subtitle=Text("در حال آماده سازی..."),
+                    trailing=ProgressRing(width=15, height=15),
+                    bgcolor="#dfdfdf"
+                )
+            )
             t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
             t.start()
             running_threads[i] = True
@@ -793,7 +805,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         while (True in running_threads):
             pass
 
-        thread_statuses.controls.append(Text("All Tests Finished"))
+        start_tests_button.disabled = False
+        thread_statuses.controls.append(Text("پایان فرایند آزمون"))
         reliability = 0
         if operational_time_unit.value == 'ساعت':
             operational_time_value = int(operational_time.value) * 60 * 60
@@ -841,6 +854,17 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     reliability_text = Text("")
     mtbf_text = Text("", rtl=True)
 
+    start_tests_button = ElevatedButton(
+        text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
+        bgcolor=Colors.BLUE_500,
+        color=Colors.WHITE,
+        style=ButtonStyle(
+            shape= RoundedRectangleBorder(8),
+            padding=Padding(15, 15, 15, 15)
+        ),
+        on_click=run_testcase
+    )
+
     return Column([
         Container(
             content=Text("اجرای آزمون‌ها و محاسبه قابلیت اطمینان", style=TextThemeStyle.HEADLINE_MEDIUM),
@@ -855,16 +879,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 operational_time,
                 operational_time_unit
             ], expand=True),
-            ElevatedButton(
-                text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
-                bgcolor=Colors.BLUE_500,
-                color=Colors.WHITE,
-                style=ButtonStyle(
-                    shape= RoundedRectangleBorder(8),
-                    padding=Padding(15, 15, 15, 15)
-                ),
-                on_click=run_testcase
-            )
+            start_tests_button
         ], width=450, horizontal_alignment='center'),
         thread_statuses,
         reliability_text,
