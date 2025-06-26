@@ -386,7 +386,7 @@ def build_tab_growth_model_run_tests(page: Page):
     number_of_failures = 0
     total_execution_time = 0
     running_threads = []
-    thread_statuses = Column()
+    thread_statuses = Column(width=600, height=800, spacing=10, scroll=ScrollMode.AUTO)
 
     def start_tester_test(testerId):
         nonlocal number_of_failures, total_execution_time, running_threads
@@ -394,12 +394,19 @@ def build_tab_growth_model_run_tests(page: Page):
 
         for test_case in all_testcases:
             number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
+
+            thread_statuses.controls[testerId].subtitle = Text(f"در حال ساخت داده آزمون برای سناریوی {test_case}")
+            page.update()
+
             csv_path = generate_input_data(test_case, str(testerId + 1), number_of_sub_tests, True)
             test_case_path = all_testcases[test_case]["testcase_dir"]
             df = pd.read_csv(csv_path)
             df['result'] = ''
 
             for idx, row in df.iterrows():
+                thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case} -> در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
+                page.update()
+
                 env = os.environ.copy()
                 env.update(row.dropna().astype(str).to_dict())
                 try:
@@ -415,10 +422,6 @@ def build_tab_growth_model_run_tests(page: Page):
                     df.at[idx, "result"] = outcome
                     df.to_csv(csv_path, index=False)
 
-                    tester_status = f" -> Test ({test_case}) -- Excuted {idx + 1} tests from {number_of_sub_tests} tests"
-                    thread_statuses.controls[testerId].value = f"Tester {testerId+1}: {tester_status}"
-                    page.update()
-
                     if outcome == 'fail':
                         elapsed = int(time.time() - start_time)
                         elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
@@ -427,7 +430,8 @@ def build_tab_growth_model_run_tests(page: Page):
                         number_of_failures += 1
                         running_threads[testerId] = False
 
-                        thread_statuses.controls[testerId].value = f"Tester {testerId+1} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
+                        thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد -> زمان سپری شده: {elapsed_formatted}")
+                        thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
                         page.update()
                         return
                 except Exception as e:
@@ -441,7 +445,8 @@ def build_tab_growth_model_run_tests(page: Page):
                     number_of_failures += 1
                     running_threads[testerId] = False
 
-                    thread_statuses.controls[testerId].value = f"Tester {testerId+1} failed at {idx+1}th test from {test_case} -- Elapsed Time: {elapsed_formatted}"
+                    thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد -> زمان سپری شده: {elapsed_formatted}")
+                    thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
                     page.update()
                     return
             
@@ -451,7 +456,8 @@ def build_tab_growth_model_run_tests(page: Page):
         total_execution_time += elapsed
         running_threads[testerId] = False
 
-        thread_statuses.controls[testerId].value = f"Tester {testerId+1} excuted all tests without failure -- Elapsed Time: {elapsed_formatted}"
+        thread_statuses.controls[testerId].subtitle = Text(f"همه آزمون‌ها بدون خطا پاس شدند -> زمان سپری شده: {elapsed_formatted}")
+        thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
         page.update()
 
     def run_testcase(e):
@@ -460,8 +466,17 @@ def build_tab_growth_model_run_tests(page: Page):
         number_of_failures = 0
         running_threads = [False] * int(number_of_testers.value)
         thread_statuses.controls.clear()
+        start_tests_button.disabled = True
+
         for i in range(int(number_of_testers.value)):
-            thread_statuses.controls.append(Text(f"Tester {i+1}: Not started", size=18))
+            thread_statuses.controls.append(
+                ListTile(
+                    title=Text(f"آزمونگر {i+1}"),
+                    subtitle=Text("در حال آماده سازی..."),
+                    trailing=ProgressRing(width=15, height=15),
+                    bgcolor="#dfdfdf"
+                )
+            )
             t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
             t.start()
             running_threads[i] = True
@@ -471,7 +486,9 @@ def build_tab_growth_model_run_tests(page: Page):
         while (True in running_threads):
             pass
 
-        thread_statuses.controls.append(Text("All Tests Finished"))
+        start_tests_button.disabled = False
+
+        thread_statuses.controls.append(Text("پایان فرایند آزمون"))
         page.update()
 
         results = load_results()
@@ -491,6 +508,17 @@ def build_tab_growth_model_run_tests(page: Page):
     number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
+    start_tests_button = ElevatedButton(
+        text="اجرای آزمون‌ها",
+        bgcolor=Colors.BLUE_500,
+        color=Colors.WHITE,
+        style=ButtonStyle(
+            shape= RoundedRectangleBorder(8),
+            padding=Padding(15, 15, 15, 15)
+        ),
+        on_click=run_testcase
+    )
+
     return Column([
         Container(
             content=Text("اجرای آزمون‌ها", style=TextThemeStyle.HEADLINE_MEDIUM),
@@ -500,16 +528,7 @@ def build_tab_growth_model_run_tests(page: Page):
         Column([
             number_of_tests,
             number_of_testers,
-            ElevatedButton(
-                text="اجرای آزمون‌ها",
-                bgcolor=Colors.BLUE_500,
-                color=Colors.WHITE,
-                style=ButtonStyle(
-                    shape= RoundedRectangleBorder(8),
-                    padding=Padding(15, 15, 15, 15)
-                ),
-                on_click=run_testcase
-            )
+            start_tests_button
         ], width=300, horizontal_alignment='center'),
         thread_statuses
     ], expand=True, horizontal_alignment='center')
