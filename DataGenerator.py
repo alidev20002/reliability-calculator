@@ -541,9 +541,9 @@ def build_tab_growth_reliability(page: Page):
             cells=[
                 DataCell(Text(str(idx + 1))),
                 DataCell(Text(str(item["failures"]))),
-                DataCell(Text(str(item["time"]))),
+                DataCell(Text(f"{item["time"] // 60:02}:{item["time"] % 60:02}")),
                 DataCell(Text(str(item["cumulative_failures"]))),
-                DataCell(Text(str(item["cumulative_time"]))),
+                DataCell(Text(f"{item["cumulative_time"] // 60:02}:{item["cumulative_time"] % 60:02}")),
                 DataCell(Text(f"{item['failure_rate']:.4f}"))
             ]
         )
