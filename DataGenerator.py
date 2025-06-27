@@ -917,18 +917,23 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
     ideal_mtbf = TextField(label="میانگین زمان بین خرابی مطلوب", value="10", keyboard_type=KeyboardType.NUMBER)
     minimum_mtbf = TextField(label="پایین ترین مقدار زمان بین خرابی مطلوب", value="10", keyboard_type=KeyboardType.NUMBER)
 
-    test_plan = Text("")
-
-    progress = ProgressBar(width=100, visible=False)
+    test_plan = ListTile(
+        title=Text(""),
+        bgcolor='#dfdfdf',
+        width=500,
+        visible=False
+    )
 
     def find_test_plan(e, max_c=100, max_T=100000, step=50):
         alpha = consumer_risk_percent.value / 100.0
         beta = producer_risk_percent.value / 100.0
         theta0 = int(ideal_mtbf.value)
         theta1 = int(minimum_mtbf.value)
-        progress.visible = True
-        test_plan.value = "در حال محاسبه، لطفا صبور باشید..."
+        test_plan.visible = True
+        test_plan.subtitle = ProgressBar(width=100, visible=True)
+        test_plan.title.value = "در حال محاسبه، لطفا صبور باشید..."
         page.update()
+
         for c in range(1, max_c + 1):
             for T in np.arange(0, max_T, step):
                 mu1 = T / theta1
@@ -938,18 +943,13 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
                 p_accept_H0 = poisson.cdf(c, mu0)
 
                 if p_accept_H0 >= 1 - beta and p_accept_H1 <= alpha:
-                    progress.visible = False
-                    test_plan.value = f"برنامه آزمون: بیشترین تعداد خرابی مجاز {c} و کمترین مقدار زمان آزمون {round(T, 2)} {time_unit.value} می باشد."
+                    test_plan.title.value = f"برنامه آزمون"
+                    test_plan.subtitle = Text(f"بیشترین تعداد خرابی مجاز: {c}\nکمترین مقدار زمان آزمون: {round(T, 2)} {time_unit.value}")
                     page.update()
                     return
-                    # return {
-                    #     "acceptance_failure_number (c)": c,
-                    #     "test_duration (T)": round(T, 2),
-                    #     "P_accept_under_H1": round(p_accept_H1, 3),
-                    #     "P_accept_under_H0": round(p_accept_H0, 3)
-                    # }
-        progress.visible = False
-        test_plan.value = "متاسفانه برنامه آزمون مناسبی پیدا نشد."
+                
+        test_plan.subtitle.visible = False
+        test_plan.title.value = "متاسفانه برنامه آزمون مناسبی پیدا نشد."
         page.update()
 
     return Column([
@@ -981,8 +981,7 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
                 on_click=find_test_plan
             )
         ], width=450, horizontal_alignment='center'),
-        test_plan,
-        progress
+        test_plan
     ], expand=True, horizontal_alignment='center')
 
 def build_tab_test_and_estimation_modify_results(page: Page):
