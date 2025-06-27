@@ -743,7 +743,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 df['result'] = ''
 
                 for idx, row in df.iterrows():
-                    thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case} -> در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
+                    thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case}: در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
                     page.update()
 
                     env = os.environ.copy()
@@ -813,7 +813,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             pass
 
         start_tests_button.disabled = False
-        thread_statuses.controls.append(Text("پایان فرایند آزمون"))
+        
         reliability = 0
         if operational_time_unit.value == 'ساعت':
             operational_time_value = int(operational_time.value) * 60 * 60
@@ -830,6 +830,15 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             total_execution_time = int(test_duration.value)
 
         all_testers_time = total_execution_time  * int(number_of_testers.value)
+
+        all_testers_time_formatted = f"{all_testers_time // 60:02}:{all_testers_time % 60:02}"
+        thread_statuses.controls.append(
+            ListTile(
+                title=Text("پایان فرایند آزمون"),
+                subtitle=Text(f"تعداد کل خرابی‌ها: {number_of_failures}\nزمان سپری شده: {all_testers_time_formatted}"),
+                bgcolor="#84c5fd"
+            )
+        )
         
         reliability = test_and_estimation_reliability(number_of_failures, all_testers_time, operational_time_value)
         reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
