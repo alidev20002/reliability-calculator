@@ -404,7 +404,7 @@ def build_tab_growth_model_run_tests(page: Page):
             df['result'] = ''
 
             for idx, row in df.iterrows():
-                thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case} -> در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
+                thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case}: در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
                 page.update()
 
                 env = os.environ.copy()
@@ -430,7 +430,7 @@ def build_tab_growth_model_run_tests(page: Page):
                         number_of_failures += 1
                         running_threads[testerId] = False
 
-                        thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد -> زمان سپری شده: {elapsed_formatted}")
+                        thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد\nزمان سپری شده: {elapsed_formatted}")
                         thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
                         page.update()
                         return
@@ -445,7 +445,7 @@ def build_tab_growth_model_run_tests(page: Page):
                     number_of_failures += 1
                     running_threads[testerId] = False
 
-                    thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد -> زمان سپری شده: {elapsed_formatted}")
+                    thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد\nزمان سپری شده: {elapsed_formatted}")
                     thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
                     page.update()
                     return
@@ -456,7 +456,7 @@ def build_tab_growth_model_run_tests(page: Page):
         total_execution_time += elapsed
         running_threads[testerId] = False
 
-        thread_statuses.controls[testerId].subtitle = Text(f"همه آزمون‌ها بدون خطا پاس شدند -> زمان سپری شده: {elapsed_formatted}")
+        thread_statuses.controls[testerId].subtitle = Text(f"همه آزمون‌ها بدون خطا پاس شدند\nزمان سپری شده: {elapsed_formatted}")
         thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
         page.update()
 
@@ -488,7 +488,14 @@ def build_tab_growth_model_run_tests(page: Page):
 
         start_tests_button.disabled = False
 
-        thread_statuses.controls.append(Text("پایان فرایند آزمون"))
+        total_time_formatted = f"{total_execution_time // 60:02}:{total_execution_time % 60:02}"
+        thread_statuses.controls.append(
+            ListTile(
+                title=Text("پایان فرایند آزمون"),
+                subtitle=Text(f"تعداد کل خرابی‌ها: {number_of_failures}\nزمان سپری شده: {total_time_formatted}"),
+                bgcolor="#84c5fd"
+            )
+        )
         page.update()
 
         results = load_results()
