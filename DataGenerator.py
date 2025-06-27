@@ -386,7 +386,7 @@ def build_tab_growth_model_run_tests(page: Page):
     number_of_failures = 0
     total_execution_time = 0
     running_threads = []
-    thread_statuses = Column(width=600, height=800, spacing=10, scroll=ScrollMode.AUTO)
+    thread_statuses = Column(width=600, spacing=10, scroll=ScrollMode.AUTO)
 
     def start_tester_test(testerId):
         nonlocal number_of_failures, total_execution_time, running_threads
@@ -604,10 +604,10 @@ def build_tab_growth_reliability(page: Page):
         text_style=TextStyle(
             size=14
         ),
-        width=400
+        width=500
     )
 
-    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
+    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER, width=290)
     operational_time_unit = Dropdown(
         label="واحد زمان",
         options=[
@@ -615,13 +615,28 @@ def build_tab_growth_reliability(page: Page):
             dropdown.Option("دقیقه"),
             dropdown.Option("ساعت")
         ],
-        value="ثانیه"
+        value="ثانیه",
+        width=200
     )
 
-    reliability_text = Text("")
-    mtbf_text = Text("", rtl=True)
+    reliability_tile = ListTile(
+        title=Text(""),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=500
+    )
+
+    mtbf_tile = ListTile(
+        title=Text("", rtl=True),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=500,
+    )
 
     def calculate_reliability(e):
+        reliability_tile.visible = False
+        page.update()
+
         reliability = 0
         error = None
         if operational_time_unit.value == 'ساعت':
@@ -641,12 +656,16 @@ def build_tab_growth_reliability(page: Page):
             reliability = estimate_duane(results, operational_time_value)
         
         if error:
-            reliability_text.value = error
+            reliability_tile.title.value = error
         else:
-            reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+            reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        reliability_tile.visible = True
         page.update()
 
     def calculate_mtbf(e):
+        mtbf_tile.visible = False
+        page.update()
+
         total_time = results[-1]['cumulative_time']
         total_failures = results[-1]['cumulative_failures']
         mtbf = float(total_time) / total_failures
@@ -655,7 +674,8 @@ def build_tab_growth_reliability(page: Page):
         elif operational_time_unit.value == 'دقیقه':
             mtbf = mtbf / 60
         
-        mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        mtbf_tile.title.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        mtbf_tile.visible = True
         page.update()
 
     return Column([
@@ -681,9 +701,9 @@ def build_tab_growth_reliability(page: Page):
         Row([
             operational_time,
             operational_time_unit
-        ], expand=True, alignment='center'),
+        ], width=500, alignment='center'),
+        selected_model,
         Row([
-            selected_model,
             ElevatedButton(
                 text="محاسبه قابلیت اطمینان",
                 bgcolor=Colors.BLUE_500,
@@ -705,15 +725,9 @@ def build_tab_growth_reliability(page: Page):
                 on_click=calculate_mtbf
             )
         ], expand=True, alignment='center'),
-        Container(
-            content=reliability_text,
-            alignment=alignment.center
-        ),
-        Container(
-            content=mtbf_text,
-            alignment=alignment.center
-        ),
-    ])
+        reliability_tile,
+        mtbf_tile,
+    ], horizontal_alignment='center')
 
 def build_tab_test_and_estimation_model_run_tests(page: Page):
     all_testcases = load_all_testcases()
@@ -721,7 +735,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     number_of_failures = 0
     total_execution_time = 0
     running_threads = []
-    thread_statuses = Column(width=600, height=800, spacing=10, scroll=ScrollMode.AUTO)
+    thread_statuses = Column(width=600, spacing=10, scroll=ScrollMode.AUTO)
 
     def start_tester_test(testerId):
         nonlocal number_of_failures, running_threads
@@ -841,7 +855,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         )
         
         reliability = test_and_estimation_reliability(number_of_failures, all_testers_time, operational_time_value)
-        reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        reliability_tile.visible = True
 
         mtbf = float(all_testers_time) / number_of_failures
         if operational_time_unit.value == 'ساعت':
@@ -849,7 +864,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         elif operational_time_unit.value == 'دقیقه':
             mtbf = mtbf / 60
         
-        mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        mtbf_tile.title.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        mtbf_tile.visible = True
         page.update()
 
     test_duration = TextField(label="مقدار زمان آزمون", value="10", keyboard_type=KeyboardType.NUMBER)
@@ -867,8 +883,19 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         value="ثانیه"
     )
 
-    reliability_text = Text("")
-    mtbf_text = Text("", rtl=True)
+    reliability_tile = ListTile(
+        title=Text(""),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=600
+    )
+
+    mtbf_tile = ListTile(
+        title=Text("", rtl=True),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=600,
+    )
 
     start_tests_button = ElevatedButton(
         text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
@@ -898,8 +925,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             start_tests_button
         ], width=450, horizontal_alignment='center'),
         thread_statuses,
-        reliability_text,
-        mtbf_text
+        reliability_tile,
+        mtbf_tile
     ], expand=True, horizontal_alignment='center')
 
 def build_tab_test_and_estimation_calculate_test_time(page: Page):
@@ -1079,7 +1106,8 @@ def build_tab_test_and_estimation_modify_results(page: Page):
             total_execution_time = int(test_duration.value)
         
         reliability = test_and_estimation_reliability(total_failures, total_execution_time, operational_time_value)
-        reliability_text.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        reliability_tile.visible = True
 
         mtbf = float(total_execution_time) / total_failures
         if operational_time_unit.value == 'ساعت':
@@ -1087,7 +1115,8 @@ def build_tab_test_and_estimation_modify_results(page: Page):
         elif operational_time_unit.value == 'دقیقه':
             mtbf = mtbf / 60
         
-        mtbf_text.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        mtbf_tile.title.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
+        mtbf_tile.visible = True
         page.update()
 
     test_duration = TextField(label="مقدار زمان آزمون", value="10", keyboard_type=KeyboardType.NUMBER, width=200)
@@ -1104,8 +1133,19 @@ def build_tab_test_and_estimation_modify_results(page: Page):
 
     save_message = Text("")
 
-    reliability_text = Text("")
-    mtbf_text = Text("", rtl=True)
+    reliability_tile = ListTile(
+        title=Text(""),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=500
+    )
+
+    mtbf_tile = ListTile(
+        title=Text("", rtl=True),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=500,
+    )
 
     return Column([
         Container(
@@ -1142,7 +1182,7 @@ def build_tab_test_and_estimation_modify_results(page: Page):
         Row([
             operational_time,
             operational_time_unit
-        ], expand=True, alignment='center'),
+        ], expand=True, alignment='center', width=500),
         ElevatedButton(
             text="محاسبه قابلیت اطمینان",
             bgcolor=Colors.BLUE_500,
@@ -1153,8 +1193,8 @@ def build_tab_test_and_estimation_modify_results(page: Page):
             ),
             on_click=calculate_reliability
         ),
-        reliability_text,
-        mtbf_text
+        reliability_tile,
+        mtbf_tile
     ], expand=True, horizontal_alignment='center')
 
 def main(page: Page):
