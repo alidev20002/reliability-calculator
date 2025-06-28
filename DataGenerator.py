@@ -40,20 +40,22 @@ def save_results(data):
     with open(RESULTS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def generate_input_data(test_name, tester_id, count, is_growth):
+def generate_input_data(test_case_name, test_case_path, tester_id, count, is_growth):
+    dir_name, _ = os.path.split(test_case_path)
     if is_growth:
         model_dir = 'growth'
     else:
         model_dir = 'test_and_estimate'
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    csv_filename = f"{test_name}-tester{tester_id}.csv"
+    csv_filename = f"{test_case_name}-tester{tester_id}.csv"
     csv_path = os.path.join(model_dir, csv_filename)
     csv_path = os.path.join(current_dir, csv_path)
-    print(csv_path)
-    # Calling LLM API with params (count, csv_path, test_name)
+
+    html_path = os.path.join(dir_name, 'katalon_test.html')
+    print(html_path)
     request_body = {
-        'katalon_path': '',
+        'katalon_path': html_path,
         'output_csv_path': csv_path,
         'num_test_cases': count
     }
@@ -398,8 +400,8 @@ def build_tab_growth_model_run_tests(page: Page):
             thread_statuses.controls[testerId].subtitle = Text(f"در حال ساخت داده آزمون برای سناریوی {test_case}")
             page.update()
 
-            csv_path = generate_input_data(test_case, str(testerId + 1), number_of_sub_tests, True)
-            test_case_path = all_testcases[test_case]["testcase_dir"]
+            test_case_path = all_testcases[test_case]['testcase_dir']
+            csv_path = generate_input_data(test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
             df = pd.read_csv(csv_path)
             df['result'] = ''
 
@@ -416,6 +418,7 @@ def build_tab_growth_model_run_tests(page: Page):
                         capture_output=True,
                         text=True, timeout=300
                     )
+                    print(result)
                     output = result.stdout.strip().splitlines()
                     outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
 
