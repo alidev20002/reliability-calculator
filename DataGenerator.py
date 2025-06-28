@@ -418,7 +418,6 @@ def build_tab_growth_model_run_tests(page: Page):
                         capture_output=True,
                         text=True, timeout=300
                     )
-                    print(result)
                     output = result.stdout.strip().splitlines()
                     outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
 
