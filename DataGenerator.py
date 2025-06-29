@@ -753,7 +753,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
                 tester_iteration = f"{testerId + 1}-{iteration}"
-                csv_path = generate_input_data(test_case, tester_iteration, number_of_sub_tests, False)
+                test_case_path = all_testcases[test_case]['testcase_dir']
+                csv_path = generate_input_data(test_case, test_case_path, tester_iteration, number_of_sub_tests, False)
                 test_case_path = all_testcases[test_case]["testcase_dir"]
                 df = pd.read_csv(csv_path)
                 df['result'] = ''
