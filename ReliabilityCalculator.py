@@ -14,7 +14,7 @@ from scipy.stats import poisson
 import requests
 
 SETTINGS_FILE = 'testcases.json'
-RESULTS_FILE = 'results.json'
+RESULTS_FILE = 'growth/results.json'
 LLM_GENERATE_DATA_API_URL = 'http://localhost:5000/generate_test_cases'
 
 os.makedirs('growth', exist_ok=True)
