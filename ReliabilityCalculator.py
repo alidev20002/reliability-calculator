@@ -71,8 +71,7 @@ def generate_input_data(test_case_name, test_case_path, tester_id, count, is_gro
     except:
         pass
 
-    # TODO: return None
-    return csv_path
+    return None
 
 def plot_failure_rate_change(data):
     x = [item['failure_rate'] for item in data]
@@ -402,6 +401,14 @@ def build_tab_growth_model_run_tests(page: Page):
 
             test_case_path = all_testcases[test_case]['testcase_dir']
             csv_path = generate_input_data(test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
+            if not csv_path:
+                thread_statuses.controls[testerId].subtitle = Text(f"خطا در ساخت داده ورودی!")
+                thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
+                page.update()
+
+                running_threads[testerId] = False
+                return
+
             df = pd.read_csv(csv_path)
             df['result'] = ''
 
@@ -755,7 +762,9 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 tester_iteration = f"{testerId + 1}-{iteration}"
                 test_case_path = all_testcases[test_case]['testcase_dir']
                 csv_path = generate_input_data(test_case, test_case_path, tester_iteration, number_of_sub_tests, False)
-                test_case_path = all_testcases[test_case]["testcase_dir"]
+                if not csv_path:
+                    continue
+
                 df = pd.read_csv(csv_path)
                 df['result'] = ''
 
@@ -861,7 +870,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         reliability_tile.visible = True
 
-        mtbf = float(all_testers_time) / number_of_failures
+        mtbf = float(all_testers_time) / number_of_failures if number_of_failures != 0 else 0
         if operational_time_unit.value == 'ساعت':
             mtbf = mtbf / 3600
         elif operational_time_unit.value == 'دقیقه':
