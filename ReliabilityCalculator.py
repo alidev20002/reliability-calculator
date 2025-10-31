@@ -942,8 +942,19 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     ], expand=True, horizontal_alignment='center')
 
 def build_tab_test_and_estimation_calculate_test_time(page: Page):
-    consumer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0)
-    producer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0)
+    consumer_risk__text = Text("0%")
+    producer_risk__text = Text("0%")
+
+    def on_consumer_change(e):
+        consumer_risk__text.value = f"{int(e.control.value)}%"
+        page.update()
+
+    def on_producer_change(e):
+        producer_risk__text.value = f"{int(e.control.value)}%"
+        page.update()
+
+    consumer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_consumer_change)
+    producer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_producer_change)
     time_unit = Dropdown(
         label="واحد زمان",
         options=[
@@ -1001,10 +1012,12 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
             Row([
                 Text("ریسک مصرف کننده: "),
                 consumer_risk_percent,
+                consumer_risk__text
             ], width=200),
             Row([
                 Text("ریسک تولید کننده: "),
                 producer_risk_percent,
+                producer_risk__text
             ], width=200),
             time_unit,
             ideal_mtbf,
