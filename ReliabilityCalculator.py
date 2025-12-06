@@ -1222,10 +1222,14 @@ def build_tab_test_and_estimation_modify_results(page: Page):
         mtbf_tile
     ], expand=True, horizontal_alignment='center')
 
+def build_tab_web_load_test_and_estimation(page: Page):
+    pass
+
 def main(page: Page):
     page.title = "ماژول محاسبه‌گر قابلیت اطمینان نرم‌افزار"
     page.scroll = ScrollMode.AUTO
     page.rtl = True
+    page.theme_mode = ThemeMode.LIGHT
 
     growth_method_tabs = Tabs(tabs=[
         Tab(text="اجرای آزمون‌ها", content=build_tab_growth_model_run_tests(page)),
@@ -1238,10 +1242,30 @@ def main(page: Page):
         Tab(text="اصلاح دستی نتایج", content=build_tab_test_and_estimation_modify_results(page)),
     ])
 
-    page.add(Tabs(tabs=[
+    web_system_test_tabs = Tabs(tabs=[
         Tab(text="مدیریت آزمون‌ها", content=build_tab_manage_tests(page)),
         Tab(text="محاسبه قابلیت اطمینان با مدل‌های رشد", content=growth_method_tabs),
         Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=test_and_estimation_method_tabs)
+    ])
+
+    desktop_system_test_tabs = Tabs(tabs=[
+        Tab(text="مدیریت آزمون‌ها", content=build_tab_manage_tests(page)),
+        Tab(text="محاسبه قابلیت اطمینان با مدل‌های رشد", content=growth_method_tabs),
+        Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=test_and_estimation_method_tabs)
+    ])
+
+    system_test_tabs = Tabs(tabs=[
+        Tab(text="تست نرم‌افزار تحت وب", content=web_system_test_tabs),
+        Tab(text="تست نرم‌افزار دسکتاپ", content=desktop_system_test_tabs)
+    ])
+
+    load_test_tabs = Tabs(tabs=[
+        Tab(text="تست نرم‌افزار تحت وب", content=build_tab_web_load_test_and_estimation(page)),
+    ])
+
+    page.add(Tabs(tabs=[
+        Tab(text="تست سیستم", content=system_test_tabs),
+        Tab(text="تست بار و استرس", content=load_test_tabs)
     ]))
 
-app(target=main)
+app(target=main, view=WEB_BROWSER)
