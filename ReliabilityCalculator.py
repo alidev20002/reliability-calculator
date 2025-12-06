@@ -1223,7 +1223,98 @@ def build_tab_test_and_estimation_modify_results(page: Page):
     ], expand=True, horizontal_alignment='center')
 
 def build_tab_web_load_test_and_estimation(page: Page):
-    pass
+    testcase_dir_picker = FilePicker()
+    page.overlay.append(testcase_dir_picker)
+    testcase_dir_input = TextField(
+        label="📂 مسیر دایرکتوری سناریو آزمون",
+        read_only=True
+    )
+
+    testcase_dir_row = Row(
+        controls=[
+            testcase_dir_input,
+            ElevatedButton(
+                text="انتخاب فایل",
+                icon=Icons.UPLOAD_FILE,
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=lambda e: testcase_dir_picker.pick_files(allow_multiple=False)
+            )
+        ],
+        spacing=10
+    )
+
+    def on_file_selected(e):
+        if e.files:
+            testcase_dir_input.value = e.files[0].path
+            testcase_dir_input.update()
+
+    testcase_dir_picker.on_result = on_file_selected
+
+    number_of_threads = TextField(label="تعداد تردها (حجم بار)", value="100", keyboard_type=KeyboardType.NUMBER)
+    ramp_up_period = TextField(label="مقدار زمان لازم برای ایجاد تردها", value="30", keyboard_type=KeyboardType.NUMBER)
+    loop_count = TextField(label="تعداد درخواست های هر ترد به هر api", value="30", keyboard_type=KeyboardType.NUMBER)
+
+    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
+    operational_time_unit = Dropdown(
+        label="واحد زمان",
+        options=[
+            dropdown.Option("ثانیه"),
+            dropdown.Option("دقیقه"),
+            dropdown.Option("ساعت")
+        ],
+        value="ثانیه"
+    )
+
+    reliability_tile = ListTile(
+        title=Text(""),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=600
+    )
+
+    mtbf_tile = ListTile(
+        title=Text("", rtl=True),
+        visible=False,
+        bgcolor='#dfdfdf',
+        width=600,
+    )
+
+    start_tests_button = ElevatedButton(
+        text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
+        bgcolor=Colors.BLUE_500,
+        color=Colors.WHITE,
+        style=ButtonStyle(
+            shape= RoundedRectangleBorder(8),
+            padding=Padding(15, 15, 15, 15)
+        ),
+        # on_click=run_testcase
+    )
+
+    return Column([
+        Container(
+            content=Text("مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
+            alignment=alignment.center,
+            padding=30
+        ),
+        testcase_dir_row,
+        Column([
+            number_of_threads,
+            ramp_up_period,
+            loop_count,
+            Row([
+                operational_time,
+                operational_time_unit
+            ], expand=True),
+            start_tests_button
+        ], width=450, horizontal_alignment='center'),
+        reliability_tile,
+        mtbf_tile
+    ], spacing=50, expand=True, horizontal_alignment='center')
 
 def main(page: Page):
     page.title = "ماژول محاسبه‌گر قابلیت اطمینان نرم‌افزار"
