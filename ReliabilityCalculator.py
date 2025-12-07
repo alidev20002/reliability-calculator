@@ -12,11 +12,14 @@ from sklearn.linear_model import LinearRegression
 from scipy.optimize import curve_fit, root
 from scipy.stats import poisson
 import requests
+import csv
+import statistics
 
 SETTINGS_FILE = 'testcases.json'
 RESULTS_FILE = 'growth/results.json'
 LLM_GENERATE_DATA_API_URL = 'http://localhost:5000/generate_test_cases'
 
+os.makedirs('LoadTest', exist_ok=True)
 os.makedirs('growth', exist_ok=True)
 os.makedirs('test_and_estimate', exist_ok=True)
 
@@ -1242,7 +1245,11 @@ def build_tab_web_load_test_and_estimation(page: Page):
                     shape= RoundedRectangleBorder(8),
                     padding=Padding(15, 15, 15, 15)
                 ),
-                on_click=lambda e: testcase_dir_picker.pick_files(allow_multiple=False)
+                on_click=lambda e: testcase_dir_picker.pick_files(
+                    file_type=FilePickerFileType.CUSTOM,
+                    allowed_extensions=['jmx'],
+                    allow_multiple=False
+                )
             )
         ],
         spacing=10
@@ -1284,6 +1291,104 @@ def build_tab_web_load_test_and_estimation(page: Page):
         width=600,
     )
 
+    def run_load_test():
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        results_dir = os.path.join(base_dir, "LoadTest")
+        jmx_name = os.path.splitext(os.path.basename(testcase_dir_input.value))[0]
+        jtl_path = os.path.join(results_dir, f"{jmx_name}.jtl")
+        jmeter_path = r"D:\University\Master Project\Software\Load Test\apache-jmeter-5.6.3\apache-jmeter-5.6.3\bin\jmeter.bat"
+        cmd = [
+            jmeter_path,
+            "-n",
+            "-t", testcase_dir_input.value,
+            "-Jthreads=" + number_of_threads.value,
+            "-Jrampup=" + ramp_up_period.value,
+            "-Jloop=" + loop_count.value,
+            "-l", jtl_path
+        ]
+        
+        subprocess.run(cmd)
+
+        return jtl_path
+
+    def parse_jtl_csv(jtl_path):
+        timestamps = []
+        response_times = []
+        total_requests = 0
+        failed_requests = 0
+
+        with open(jtl_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+
+            for row in reader:
+                total_requests += 1
+
+                success = row.get("success", "").lower() == "true"
+                if not success:
+                    failed_requests += 1
+
+                ts = int(row.get("timeStamp", "0"))
+                elapsed = int(row.get("elapsed", "0"))
+
+                timestamps.append(ts)
+                timestamps.append(ts + elapsed)
+
+                response_times.append(elapsed)
+
+        if timestamps:
+            test_duration_ms = max(timestamps) - min(timestamps)
+            test_duration_sec = test_duration_ms / 1000
+        else:
+            test_duration_sec = 0
+
+        error_rate = failed_requests / total_requests if total_requests else 0
+
+        if response_times:
+            avg_response = statistics.mean(response_times)
+            max_response = max(response_times)
+            min_response = min(response_times)
+            median_response = statistics.median(response_times)
+
+            sorted_times = sorted(response_times)
+
+            def percentile(p):
+                if not sorted_times:
+                    return 0
+                k = (len(sorted_times) - 1) * (p / 100)
+                f = int(k)
+                c = min(f + 1, len(sorted_times) - 1)
+                return sorted_times[f] + (sorted_times[c] - sorted_times[f]) * (k - f)
+
+            p90 = percentile(90)
+            p95 = percentile(95)
+            p99 = percentile(99)
+
+        else:
+            avg_response = max_response = min_response = median_response = 0
+            p90 = p95 = p99 = 0
+
+        throughput = total_requests / test_duration_sec if test_duration_sec > 0 else 0
+
+        return {
+            "total_requests": total_requests,
+            "failed_requests": failed_requests,
+            "error_rate": error_rate,
+            "test_duration_seconds": test_duration_sec,
+            "avg_response_time": avg_response,
+            "min_response_time": min_response,
+            "max_response_time": max_response,
+            "median_response_time": median_response,
+            "p90": p90,
+            "p95": p95,
+            "p99": p99,
+            "throughput_rps": throughput,
+        }
+    
+    def perform_load_test(e):
+        jtl_path = run_load_test()
+        load_test_results = parse_jtl_csv(jtl_path)
+        print(load_test_results)
+
     start_tests_button = ElevatedButton(
         text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
         bgcolor=Colors.BLUE_500,
@@ -1292,7 +1397,7 @@ def build_tab_web_load_test_and_estimation(page: Page):
             shape= RoundedRectangleBorder(8),
             padding=Padding(15, 15, 15, 15)
         ),
-        # on_click=run_testcase
+        on_click=perform_load_test
     )
 
     return Column([
@@ -1301,8 +1406,8 @@ def build_tab_web_load_test_and_estimation(page: Page):
             alignment=alignment.center,
             padding=30
         ),
-        testcase_dir_row,
         Column([
+            testcase_dir_row,
             number_of_threads,
             ramp_up_period,
             loop_count,
