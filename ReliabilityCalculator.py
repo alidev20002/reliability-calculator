@@ -1305,6 +1305,8 @@ def build_tab_web_load_test_and_estimation(page: Page):
         results_dir = os.path.join(base_dir, "LoadTest")
         jmx_name = os.path.splitext(os.path.basename(testcase_dir_input.value))[0]
         jtl_path = os.path.join(results_dir, f"{jmx_name}.jtl")
+        if os.path.exists(jtl_path):
+            os.remove(jtl_path)
         jmeter_path = r"D:\University\Master Project\Software\Load Test\apache-jmeter-5.6.3\apache-jmeter-5.6.3\bin\jmeter.bat"
         cmd = [
             jmeter_path,
