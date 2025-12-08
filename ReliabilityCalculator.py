@@ -1263,7 +1263,7 @@ def build_tab_web_load_test_and_estimation(page: Page):
     testcase_dir_picker.on_result = on_file_selected
 
     number_of_threads = TextField(label="تعداد تردها (حجم بار)", value="100", keyboard_type=KeyboardType.NUMBER)
-    ramp_up_period = TextField(label="مقدار زمان لازم برای ایجاد تردها", value="30", keyboard_type=KeyboardType.NUMBER)
+    ramp_up_period = TextField(label="مقدار زمان لازم برای ایجاد تردها (ثانیه)", value="30", keyboard_type=KeyboardType.NUMBER)
     loop_count = TextField(label="تعداد درخواست های هر ترد به هر api", value="30", keyboard_type=KeyboardType.NUMBER)
 
     operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
@@ -1277,6 +1277,15 @@ def build_tab_web_load_test_and_estimation(page: Page):
         value="ثانیه"
     )
 
+    load_status_tile = ListTile(
+        title=Text("در حال اجرای تست بار"),
+        subtitle=Text("لطفا منتظر بمانید..."),
+        trailing=ProgressRing(width=15, height=15),
+        bgcolor="#dfdfdf",
+        width=600,
+        visible=False
+    )
+
     reliability_tile = ListTile(
         title=Text(""),
         visible=False,
@@ -1284,7 +1293,7 @@ def build_tab_web_load_test_and_estimation(page: Page):
         width=600
     )
 
-    mtbf_tile = ListTile(
+    load_metrics_tile = ListTile(
         title=Text("", rtl=True),
         visible=False,
         bgcolor='#dfdfdf',
@@ -1342,6 +1351,7 @@ def build_tab_web_load_test_and_estimation(page: Page):
             test_duration_sec = 0
 
         error_rate = failed_requests / total_requests if total_requests else 0
+        error_rate = error_rate * 100.0
 
         if response_times:
             avg_response = statistics.mean(response_times)
@@ -1370,23 +1380,47 @@ def build_tab_web_load_test_and_estimation(page: Page):
         throughput = total_requests / test_duration_sec if test_duration_sec > 0 else 0
 
         return {
-            "total_requests": total_requests,
-            "failed_requests": failed_requests,
-            "error_rate": error_rate,
-            "test_duration_seconds": test_duration_sec,
-            "avg_response_time": avg_response,
-            "min_response_time": min_response,
-            "max_response_time": max_response,
-            "median_response_time": median_response,
-            "p90": p90,
-            "p95": p95,
-            "p99": p99,
-            "throughput_rps": throughput,
+            "تعداد کل درخواست‌ها": total_requests,
+            "تعداد خطاها": failed_requests,
+            "درصد خطا": f"{round(error_rate, 2)}%",
+            "زمان کل تست به ثانیه": test_duration_sec,
+            "میانگین زمان پاسخ": f"{round(avg_response, 2)} میلی ثانیه",
+            "کمترین زمان پاسخ": f"{round(min_response, 2)} میلی ثانیه",
+            "بیشترین زمان پاسخ": f"{round(max_response, 2)} میلی ثانیه",
+            "میانه زمان پاسخ": f"{round(median_response, 2)} میلی ثانیه",
+            "معیار صدک 90": f"{round(p90, 2)} میلی ثانیه",
+            "معیار صدک 95": f"{round(p95, 2)} میلی ثانیه",
+            "معیار صدک 99": f"{round(p99, 2)} میلی ثانیه",
+            "تعداد درخواست پاسخ داده شده در ثانیه": f"{round(throughput, 2)} درخواست",
         }
     
     def perform_load_test(e):
+        load_status_tile.visible = True
+        load_metrics_tile.visible = False
+        reliability_tile.visible = False
+        page.update()
+
         jtl_path = run_load_test()
         load_test_results = parse_jtl_csv(jtl_path)
+
+        load_status_tile.visible = False
+        load_results_str = "\n".join([f"{k}: {v}" for k, v in load_test_results.items()])
+        load_metrics_tile.title.value = load_results_str
+        load_metrics_tile.visible = True
+
+        reliability = 0
+        if operational_time_unit.value == 'ساعت':
+            operational_time_value = int(operational_time.value) * 60 * 60
+        elif operational_time_unit.value == 'دقیقه':
+            operational_time_value = int(operational_time.value) * 60
+        else:
+            operational_time_value = int(operational_time.value)
+        
+        reliability = test_and_estimation_reliability(load_test_results['تعداد خطاها'], load_test_results['زمان کل تست به ثانیه'], operational_time_value)
+        reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
+        reliability_tile.visible = True
+        page.update()
+
         print(load_test_results)
 
     start_tests_button = ElevatedButton(
@@ -1417,9 +1451,10 @@ def build_tab_web_load_test_and_estimation(page: Page):
             ], expand=True),
             start_tests_button
         ], width=450, horizontal_alignment='center'),
+        load_status_tile,
         reliability_tile,
-        mtbf_tile
-    ], spacing=50, expand=True, horizontal_alignment='center')
+        load_metrics_tile
+    ], spacing=30, expand=True, horizontal_alignment='center')
 
 def main(page: Page):
     page.title = "ماژول محاسبه‌گر قابلیت اطمینان نرم‌افزار"
