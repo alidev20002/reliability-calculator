@@ -1,8 +1,6 @@
 import os
 from flet import *
 import subprocess
-from scipy.optimize import curve_fit, root
-from scipy.stats import poisson
 import csv
 import statistics
 from ReliabilityUtils import test_and_estimation_reliability
