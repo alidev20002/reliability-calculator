@@ -203,8 +203,6 @@ def build_tab_web_load_test_and_estimation(page: Page):
         reliability_tile.visible = True
         page.update()
 
-        print(load_test_results)
-
     start_tests_button = ElevatedButton(
         text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
         bgcolor=Colors.BLUE_500,
