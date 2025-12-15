@@ -3,6 +3,7 @@ from flet import *
 import WebSystemTestTabs as webSys
 import DesktopSystemTestTabs as deskSys
 import LoadTestTabs as load
+import ProjectManagementTab as pm
 
 os.makedirs('SystemTest', exist_ok=True)
 os.makedirs('LoadTest', exist_ok=True)
@@ -63,8 +64,9 @@ def main(page: Page):
     ])
 
     page.add(Tabs(tabs=[
+        Tab(text="مدیریت پروژه‌ها", content=pm.build_tab_project_management(page)),
         Tab(text="تست سیستم", content=system_test_tabs),
-        Tab(text="تست بار و استرس", content=load_test_tabs)
+        Tab(text="تست بار و استرس", content=load_test_tabs),
     ]))
 
 app(target=main, view=WEB_BROWSER)
