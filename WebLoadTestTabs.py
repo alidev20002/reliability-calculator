@@ -1,11 +1,21 @@
 import os
+import json
 from flet import *
 import subprocess
 import csv
 import statistics
 from ReliabilityUtils import test_and_estimation_reliability
 
+PROJECT_CONFIG = 'project_config.json'
+def get_selected_project():
+    if os.path.exists(PROJECT_CONFIG):
+        with open(PROJECT_CONFIG, "r", encoding="utf-8") as f:
+            return json.load(f)['selected_project']
+    return 'default'
+
 def build_tab_web_load_test_and_estimation(page: Page):
+    project_name = get_selected_project()
+    os.makedirs(f"web/{project_name}/loadtest", exist_ok=True)
     testcase_dir_picker = FilePicker()
     page.overlay.append(testcase_dir_picker)
     testcase_dir_input = TextField(
@@ -82,7 +92,7 @@ def build_tab_web_load_test_and_estimation(page: Page):
 
     def run_load_test():
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        results_dir = os.path.join(base_dir, "LoadTest")
+        results_dir = os.path.join(base_dir, f"web/{project_name}/loadtest")
         jmx_name = os.path.splitext(os.path.basename(testcase_dir_input.value))[0]
         jtl_path = os.path.join(results_dir, f"{jmx_name}.jtl")
         if os.path.exists(jtl_path):

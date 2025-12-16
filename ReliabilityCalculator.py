@@ -2,11 +2,11 @@ import os
 from flet import *
 import WebSystemTestTabs as webSys
 import DesktopSystemTestTabs as deskSys
-import LoadTestTabs as load
+import WebLoadTestTabs as webLoad
 import ProjectManagementTab as pm
 
-os.makedirs('SystemTest', exist_ok=True)
-os.makedirs('LoadTest', exist_ok=True)
+os.makedirs('web', exist_ok=True)
+os.makedirs('desktop', exist_ok=True)
 
 def main(page: Page):
     page.title = "ماژول محاسبه‌گر قابلیت اطمینان نرم‌افزار"
@@ -34,7 +34,7 @@ def main(page: Page):
     ])
 
     web_load_test_tabs = Tabs(tabs=[
-        Tab(text="تست نرم‌افزار تحت وب", content=load.build_tab_web_load_test_and_estimation(page)),
+        Tab(text="تست نرم‌افزار تحت وب", content=webLoad.build_tab_web_load_test_and_estimation(page)),
     ])
 
     web_tabs = Tabs(tabs=[
@@ -70,7 +70,7 @@ def main(page: Page):
     page.add(Tabs(tabs=[
         Tab(text="مدیریت پروژه‌ها", content=pm.build_tab_project_management(page)),
         Tab(text="نرم‌افزار تحت وب", content=web_tabs),
-        Tab(text="نرم‌افزار دسکتاپ", content=desktop_tabs),
+        # Tab(text="نرم‌افزار دسکتاپ", content=desktop_tabs),
     ]))
 
 app(target=main, view=WEB_BROWSER)

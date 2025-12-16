@@ -33,6 +33,7 @@ def build_tab_project_management(page: Page):
 
     def refresh_project_list():
         selected_project.options = [dropdown.Option(p) for p in all_projects]
+        selected_project.value = project_config['selected_project']
         project_list_column.controls = []
         for name in all_projects:
             project_list_column.controls.append(
