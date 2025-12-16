@@ -14,7 +14,7 @@ def main(page: Page):
     page.rtl = True
     page.theme_mode = ThemeMode.LIGHT
 
-    # ------------------ WEB SYSTEM TEST ------------------
+    # ------------------ WEB PLATFORM ------------------
 
     web_growth_method_tabs = Tabs(tabs=[
         Tab(text="اجرای آزمون‌ها", content=webSys.build_tab_growth_model_run_tests(page)),
@@ -33,7 +33,16 @@ def main(page: Page):
         Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=web_test_and_estimation_method_tabs)
     ])
 
-    # ------------------ DESKTOP SYSTEM TEST ------------------
+    web_load_test_tabs = Tabs(tabs=[
+        Tab(text="تست نرم‌افزار تحت وب", content=load.build_tab_web_load_test_and_estimation(page)),
+    ])
+
+    web_tabs = Tabs(tabs=[
+        Tab(text="تست سیستم (Katalon Recorder)", content=web_system_test_tabs),
+        Tab(text="تست بار و استرس (Apache Jmeter)", content=web_load_test_tabs)
+    ])
+
+    # ------------------ DESKTOP PLATFORM ------------------
 
     desktop_growth_method_tabs = Tabs(tabs=[
         Tab(text="اجرای آزمون‌ها", content=deskSys.build_tab_growth_model_run_tests(page)),
@@ -52,21 +61,16 @@ def main(page: Page):
         Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=desktop_test_and_estimation_method_tabs)
     ])
 
-    system_test_tabs = Tabs(tabs=[
-        Tab(text="تست نرم‌افزار تحت وب", content=web_system_test_tabs),
-        Tab(text="تست نرم‌افزار دسکتاپ", content=desktop_system_test_tabs)
+    desktop_tabs = Tabs(tabs=[
+        Tab(text="تست سیستم (Sikulix)", content=desktop_system_test_tabs),
     ])
 
-    # ------------------ LOAD TEST ------------------
-
-    load_test_tabs = Tabs(tabs=[
-        Tab(text="تست نرم‌افزار تحت وب", content=load.build_tab_web_load_test_and_estimation(page)),
-    ])
+    # ------------------ Putting All Together ------------------
 
     page.add(Tabs(tabs=[
         Tab(text="مدیریت پروژه‌ها", content=pm.build_tab_project_management(page)),
-        Tab(text="تست سیستم", content=system_test_tabs),
-        Tab(text="تست بار و استرس", content=load_test_tabs),
+        Tab(text="نرم‌افزار تحت وب", content=web_tabs),
+        Tab(text="نرم‌افزار دسکتاپ", content=desktop_tabs),
     ]))
 
 app(target=main, view=WEB_BROWSER)
