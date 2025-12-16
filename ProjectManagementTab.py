@@ -1,7 +1,22 @@
 from flet import *
+import json
+import os
+
+PROJECT_CONFIG = 'project_config.json'
+
+def load_prject_config():
+    if os.path.exists(PROJECT_CONFIG):
+        with open(PROJECT_CONFIG, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {'selected_project': '', 'projects': []}
+
+def save_project_config(data):
+    with open(PROJECT_CONFIG, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def build_tab_project_management(page: Page):
-    all_projects = ["Test" for i in range(5)]
+    project_config = load_prject_config()
+    all_projects = project_config['projects']
 
     selected_project = Dropdown(
         label="انتخاب پروژه",
@@ -30,9 +45,10 @@ def build_tab_project_management(page: Page):
         page.update()
 
     def delete_project(name):
-        all_projects.pop(name, None)
-        # save_all_testcases(all_projects)
+        project_config['projects'].remove(name)
+        save_project_config(project_config)
         user_message.value = f"پروژه '{name}' حذف شد."
+        user_message.color = Colors.GREEN
         refresh_project_list()
 
     def save_project(e):
@@ -43,26 +59,25 @@ def build_tab_project_management(page: Page):
             page.update()
             return
         
-        # save_all_testcases(all_testcases)
-        user_message.value = f"سناریو '{new_name}' ذخیره شد."
+        if new_name in project_config['projects']:
+            user_message.value = "پروژه تکراری است."
+            user_message.color = Colors.RED
+            page.update()
+            return
+        
+        project_config['projects'].append(new_name)
+        save_project_config(project_config)
+        user_message.value = f"پروژه '{new_name}' ذخیره شد."
         user_message.color = Colors.GREEN
-        refresh_project_list()
-
-    def on_project_select(e):
-        name = selected_project.value
-        if name and name in all_projects:
-            data = all_projects[name]
-            new_project_name_input.value = name
-            new_project_name_input.read_only = True
-        else:
-            new_project_name_input.value = ""
-            new_project_name_input.read_only = False
-        page.update()
+        refresh_project_list()      
     
     def select_project(e):
-        pass
-
-    selected_project.on_change = on_project_select
+        if selected_project.value:
+            project_config['selected_project'] = selected_project.value
+            save_project_config(project_config)
+            user_message.value = f"پروژه '{selected_project.value}' انتخاب شد."
+            user_message.color = Colors.GREEN
+            page.update()
 
     refresh_project_list()
 
