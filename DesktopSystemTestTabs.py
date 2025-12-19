@@ -12,39 +12,46 @@ from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
 
-SETTINGS_FILE = 'SystemTest/Desktop/testcases.json'
-RESULTS_FILE = 'SystemTest/Desktop/growth/results.json'
+PROJECT_CONFIG = 'project_config.json'
+TEST_CASES_FILE = 'testcases.json'
+GROWTH_RESULTS_FILE = 'results.json'
 LLM_GENERATE_DATA_API_URL = 'http://localhost:5000/generate_test_cases'
 
-os.makedirs('SystemTest/Desktop/growth', exist_ok=True)
-os.makedirs('SystemTest/Desktop/test_and_estimate', exist_ok=True)
+def get_selected_project():
+    if os.path.exists(PROJECT_CONFIG):
+        with open(PROJECT_CONFIG, "r", encoding="utf-8") as f:
+            return json.load(f)['selected_project']
+    return 'default'
 
-def load_all_testcases():
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+def load_all_testcases(project_name):
+    os.makedirs(f"desktop/{project_name}/systemtest", exist_ok=True)
+    os.makedirs(f"desktop/{project_name}/systemtest/growth", exist_ok=True)
+    os.makedirs(f"desktop/{project_name}/systemtest/test_and_estimate", exist_ok=True)
+    if os.path.exists(f"desktop/{project_name}/systemtest/{TEST_CASES_FILE}"):
+        with open(f"desktop/{project_name}/systemtest/{TEST_CASES_FILE}", "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-def save_all_testcases(data):
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+def save_all_testcases(data, project_name):
+    with open(f"desktop/{project_name}/systemtest/{TEST_CASES_FILE}", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def load_results():
-    if os.path.exists(RESULTS_FILE):
-        with open(RESULTS_FILE, "r", encoding="utf-8") as f:
+def load_results(project_name):
+    if os.path.exists(f"desktop/{project_name}/systemtest/growth/{GROWTH_RESULTS_FILE}"):
+        with open(f"desktop/{project_name}/systemtest/growth/{GROWTH_RESULTS_FILE}", "r", encoding="utf-8") as f:
             return json.load(f)
     return []
 
-def save_results(data):
-    with open(RESULTS_FILE, "w", encoding="utf-8") as f:
+def save_results(data, project_name):
+    with open(f"desktop/{project_name}/systemtest/growth/{GROWTH_RESULTS_FILE}", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def generate_input_data(test_case_name, test_case_path, tester_id, count, is_growth):
+def generate_input_data(project_name, test_case_name, test_case_path, tester_id, count, is_growth):
     dir_name, _ = os.path.split(test_case_path)
     if is_growth:
-        model_dir = 'SystemTest/Desktop/growth'
+        model_dir = f"desktop/{project_name}/systemtest/growth"
     else:
-        model_dir = 'SystemTest/Desktop/test_and_estimate'
+        model_dir = f"desktop/{project_name}/systemtest/test_and_estimate"
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     csv_filename = f"{test_case_name}-tester{tester_id}.csv"
@@ -72,7 +79,7 @@ def generate_input_data(test_case_name, test_case_path, tester_id, count, is_gro
 
     return None
 
-def plot_failure_rate_change(data):
+def plot_failure_rate_change(data, project_name):
     x = [item['failure_rate'] for item in data]
     y = [item['cumulative_failures'] for item in data]
 
@@ -82,14 +89,14 @@ def plot_failure_rate_change(data):
     ax.set_ylabel("Cumulative Failures")
     ax.set_title("Failure Rate vs Cumulative Failures")
 
-    os.makedirs('SystemTest/Desktop/growth/plots', exist_ok=True)
-    filename = f"SystemTest/Desktop/growth/plots/plot_failure_rate_change.png"
+    os.makedirs(f"desktop/{project_name}/systemtest/growth/plots", exist_ok=True)
+    filename = f"desktop/{project_name}/systemtest/growth/plots/plot_failure_rate_change.png"
     plt.savefig(filename)
     plt.close(fig)
 
     return filename
 
-def plot_failure_detection_rate(data):
+def plot_failure_detection_rate(data, project_name):
     x = [item['cumulative_time'] for item in data]
     y = [item['failures'] for item in data]
 
@@ -99,8 +106,8 @@ def plot_failure_detection_rate(data):
     ax.set_ylabel("Number of Failures")
     ax.set_title("Number of Failures vs Cumulative Time")
 
-    os.makedirs("SystemTest/Desktop/growth/plots", exist_ok=True)
-    filename = "SystemTest/Desktop/growth/plots/plot_failure_detection_rate.png"
+    os.makedirs(f"desktop/{project_name}/systemtest/growth/plots", exist_ok=True)
+    filename = f"desktop/{project_name}/systemtest/growth/plots/plot_failure_detection_rate.png"
     plt.savefig(filename)
     plt.close(fig)
 
@@ -111,7 +118,8 @@ def test_and_estimation_reliability(total_failures, total_time, t):
     return math.exp(-failure_rate * t)
 
 def build_tab_manage_tests(page: Page):
-    all_testcases = load_all_testcases()
+    project_name = get_selected_project()
+    all_testcases = load_all_testcases(project_name)
 
     selected_test = Dropdown(
         label="انتخاب یا ساخت سناریو آزمون",
@@ -175,7 +183,7 @@ def build_tab_manage_tests(page: Page):
 
     def delete_testcase(name):
         all_testcases.pop(name, None)
-        save_all_testcases(all_testcases)
+        save_all_testcases(all_testcases, project_name)
         user_message.value = f"سناریو '{name}' حذف شد."
         refresh_test_list()
 
@@ -203,7 +211,7 @@ def build_tab_manage_tests(page: Page):
             "testcase_dir": testcase_dir_input.value,
             "percent": int(percent_input.value),
         }
-        save_all_testcases(all_testcases)
+        save_all_testcases(all_testcases, project_name)
         percent_input.value = 0
         max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
         percent_input.max = max_percent_value
@@ -280,7 +288,8 @@ def build_tab_manage_tests(page: Page):
     ], spacing=50)
 
 def build_tab_growth_model_run_tests(page: Page):
-    all_testcases = load_all_testcases()
+    project_name = get_selected_project()
+    all_testcases = load_all_testcases(project_name)
 
     number_of_failures = 0
     total_execution_time = 0
@@ -298,7 +307,7 @@ def build_tab_growth_model_run_tests(page: Page):
             page.update()
 
             test_case_path = all_testcases[test_case]['testcase_dir']
-            csv_path = generate_input_data(test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
+            csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
             if not csv_path:
                 thread_statuses.controls[testerId].subtitle = Text(f"خطا در ساخت داده ورودی!")
                 thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
@@ -405,7 +414,7 @@ def build_tab_growth_model_run_tests(page: Page):
         )
         page.update()
 
-        results = load_results()
+        results = load_results(project_name)
         last_result = results[-1] if results else {"cumulative_failures": 0, "cumulative_time": 0}
         cumulative_failures = last_result["cumulative_failures"] + number_of_failures
         current_time = total_execution_time
@@ -417,7 +426,7 @@ def build_tab_growth_model_run_tests(page: Page):
             "cumulative_time": cumulative_time,
             "failure_rate": cumulative_failures / cumulative_time
         })
-        save_results(results)
+        save_results(results, project_name)
 
     number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
@@ -448,7 +457,8 @@ def build_tab_growth_model_run_tests(page: Page):
     ], expand=True, horizontal_alignment='center')
 
 def build_tab_growth_reliability(page: Page):
-    results = load_results()
+    project_name = get_selected_project()
+    results = load_results(project_name)
 
     rows = [
         DataRow(
@@ -476,7 +486,7 @@ def build_tab_growth_reliability(page: Page):
         rows=rows
     )
 
-    image_path = plot_failure_rate_change(results)
+    image_path = plot_failure_rate_change(results, project_name)
     image_control = Image(src=image_path, width=400, height=300)
 
     selected_plot = Dropdown(
@@ -491,9 +501,9 @@ def build_tab_growth_reliability(page: Page):
     def on_select_plot(e):
         nonlocal image_path
         if selected_plot.value == 'نمودار تغییر نرخ خرابی':
-            image_path = plot_failure_rate_change(results)
+            image_path = plot_failure_rate_change(results, project_name)
         elif selected_plot.value == 'نمودار نرخ کشف خرابی':
-            image_path = plot_failure_detection_rate(results)
+            image_path = plot_failure_detection_rate(results, project_name)
             
         image_control.src = image_path
         page.update()
@@ -637,7 +647,8 @@ def build_tab_growth_reliability(page: Page):
     ], horizontal_alignment='center')
 
 def build_tab_test_and_estimation_model_run_tests(page: Page):
-    all_testcases = load_all_testcases()
+    project_name = get_selected_project()
+    all_testcases = load_all_testcases(project_name)
 
     number_of_failures = 0
     total_execution_time = 0
@@ -659,7 +670,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
                 tester_iteration = f"{testerId + 1}-{iteration}"
                 test_case_path = all_testcases[test_case]['testcase_dir']
-                csv_path = generate_input_data(test_case, test_case_path, tester_iteration, number_of_sub_tests, False)
+                csv_path = generate_input_data(project_name, test_case, test_case_path, tester_iteration, number_of_sub_tests, False)
                 if not csv_path:
                     continue
 
@@ -935,8 +946,9 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
     ], expand=True, horizontal_alignment='center')
 
 def build_tab_test_and_estimation_modify_results(page: Page):
+    project_name = get_selected_project()
     csv_files_list = ListView(spacing=10, padding=20, auto_scroll=True, width=400)
-    csv_directory = 'SystemTest/Desktop/test_and_estimate'
+    csv_directory = f"desktop/{project_name}/systemtest/test_and_estimate"
     files = os.listdir(csv_directory)
     for file_name in files:
         if file_name.lower().endswith(".csv"):

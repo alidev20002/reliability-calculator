@@ -117,26 +117,6 @@ def test_and_estimation_reliability(total_failures, total_time, t):
     failure_rate = float(total_failures) / total_time
     return math.exp(-failure_rate * t)
 
-def build_web_system_tabs(page: Page):
-    web_growth_method_tabs = Tabs(tabs=[
-        Tab(text="اجرای آزمون‌ها", content=build_tab_growth_model_run_tests(page)),
-        Tab(text="محاسبه قابلیت اطمینان", content=build_tab_growth_reliability(page)),
-    ])
-
-    web_test_and_estimation_method_tabs = Tabs(tabs=[
-        Tab(text="محاسبه زمان مورد نیاز برای آزمون", content=build_tab_test_and_estimation_calculate_test_time(page)),
-        Tab(text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان", content=build_tab_test_and_estimation_model_run_tests(page)),
-        Tab(text="اصلاح دستی نتایج", content=build_tab_test_and_estimation_modify_results(page)),
-    ])
-
-    web_system_test_tabs = Tabs(tabs=[
-        Tab(text="مدیریت آزمون‌ها", content=build_tab_manage_tests(page)),
-        Tab(text="محاسبه قابلیت اطمینان با مدل‌های رشد", content=web_growth_method_tabs),
-        Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=web_test_and_estimation_method_tabs)
-    ])
-
-    return Tab(text="تست سیستم تحت وب", content=web_system_test_tabs)
-
 def build_tab_manage_tests(page: Page):
     project_name = get_selected_project()
     all_testcases = load_all_testcases(project_name)
@@ -447,10 +427,6 @@ def build_tab_growth_model_run_tests(page: Page):
             "failure_rate": cumulative_failures / cumulative_time
         })
         save_results(results, project_name)
-        page.controls[0].tabs[0].content.tabs[0].content.tabs.clear()
-        for tab in build_web_system_tabs(page).content.tabs:
-            page.controls[0].tabs[0].content.tabs[0].content.tabs.append(tab)
-        page.update()
 
     number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
