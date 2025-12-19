@@ -11,6 +11,7 @@ import numpy as np
 from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
+import Tips
 
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
@@ -459,6 +460,7 @@ def build_tab_growth_model_run_tests(page: Page):
 def build_tab_growth_reliability(page: Page):
     project_name = get_selected_project()
     results = load_results(project_name)
+    reliability_tip = ''
 
     rows = [
         DataRow(
@@ -502,10 +504,13 @@ def build_tab_growth_reliability(page: Page):
         nonlocal image_path
         if selected_plot.value == 'نمودار تغییر نرخ خرابی':
             image_path = plot_failure_rate_change(results, project_name)
+            image_tip = Tips.FAILURE_RATE_CHANGE
         elif selected_plot.value == 'نمودار نرخ کشف خرابی':
             image_path = plot_failure_detection_rate(results, project_name)
+            image_tip = Tips.FAILURE_DETECTION_RATE
             
         image_control.src = image_path
+        image_control.tooltip = image_tip
         page.update()
     selected_plot.on_change = on_select_plot
 
@@ -551,6 +556,7 @@ def build_tab_growth_reliability(page: Page):
     )
 
     def calculate_reliability(e):
+        nonlocal reliability_tip
         reliability_tile.visible = False
         page.update()
 
@@ -565,18 +571,23 @@ def build_tab_growth_reliability(page: Page):
 
         if selected_model.value == 'مدل Goel Okumoto':
             reliability = estimate_goel_okumoto(results, operational_time_value)
+            reliability_tip = Tips.GOEL_OKUMOTO
         elif selected_model.value == 'مدل Weibull':
             reliability, error = estimate_weibull(results, operational_time_value)
+            reliability_tip = Tips.WEIBULL
         elif selected_model.value == 'مدل Log-Logistics':
             reliability = estimate_log_logistics(results, operational_time_value)
+            reliability_tip = Tips.LOG_LOGISTICS
         elif selected_model.value == 'مدل Duane':
             reliability = estimate_duane(results, operational_time_value)
+            reliability_tip = Tips.DUANE
         
         if error:
             reliability_tile.title.value = error
         else:
             reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         reliability_tile.visible = True
+        reliability_tile.tooltip = reliability_tip
         page.update()
 
     def calculate_mtbf(e):
@@ -639,7 +650,8 @@ def build_tab_growth_reliability(page: Page):
                     shape= RoundedRectangleBorder(8),
                     padding=Padding(15, 15, 15, 15)
                 ),
-                on_click=calculate_mtbf
+                on_click=calculate_mtbf,
+                tooltip=Tips.MTBF
             )
         ], expand=True, alignment='center'),
         reliability_tile,
@@ -862,8 +874,8 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
         producer_risk__text.value = f"{int(e.control.value)}%"
         page.update()
 
-    consumer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_consumer_change)
-    producer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_producer_change)
+    consumer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_consumer_change, tooltip=Tips.CONSUMER_RISK)
+    producer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_producer_change, tooltip=Tips.PRODUCER_RISK)
     time_unit = Dropdown(
         label="واحد زمان",
         options=[
