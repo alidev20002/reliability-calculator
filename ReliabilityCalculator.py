@@ -70,7 +70,7 @@ def main(page: Page):
     page.add(Tabs(tabs=[
         Tab(text="مدیریت پروژه‌ها", content=pm.build_tab_project_management(page)),
         Tab(text="نرم‌افزار تحت وب", content=web_tabs),
-        # Tab(text="نرم‌افزار دسکتاپ", content=desktop_tabs),
+        Tab(text="نرم‌افزار دسکتاپ", content=desktop_tabs),
     ]))
 
 app(target=main, view=WEB_BROWSER)
