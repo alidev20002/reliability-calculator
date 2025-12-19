@@ -133,7 +133,7 @@ def build_tab_manage_tests(page: Page):
     testcase_dir_picker = FilePicker()
     page.overlay.append(testcase_dir_picker)
     testcase_dir_input = TextField(
-        label="📂 مسیر دایرکتوری سناریو آزمون",
+        label="📂 مسیر فایل سناریو آزمون",
         read_only=True
     )
 

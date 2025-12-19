@@ -4,7 +4,6 @@ from flet import *
 import subprocess
 import csv
 import statistics
-from ReliabilityUtils import test_and_estimation_reliability
 
 PROJECT_CONFIG = 'project_config.json'
 def get_selected_project():
@@ -13,13 +12,50 @@ def get_selected_project():
             return json.load(f)['selected_project']
     return 'default'
 
-def build_tab_web_load_test_and_estimation(page: Page):
+def build_tab_web_load_test(page: Page):
     project_name = get_selected_project()
     os.makedirs(f"web/{project_name}/loadtest", exist_ok=True)
+
+    jmeter_dir_picker = FilePicker()
+    page.overlay.append(jmeter_dir_picker)
+    jmeter_dir_input = TextField(
+        label="📂 مسیر فایل اجرایی ابزار jmeter (jmeter.bat یا jmeter.sh)",
+        read_only=True
+    )
+
+    jmeter_dir_row = Row(
+        controls=[
+            jmeter_dir_input,
+            ElevatedButton(
+                text="انتخاب فایل",
+                icon=Icons.UPLOAD_FILE,
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=lambda e: jmeter_dir_picker.pick_files(
+                    file_type=FilePickerFileType.CUSTOM,
+                    allowed_extensions=['bat', 'sh'],
+                    allow_multiple=False
+                )
+            )
+        ],
+        spacing=10
+    )
+
+    def on_jmeter_file_selected(e):
+        if e.files:
+            jmeter_dir_input.value = e.files[0].path
+            jmeter_dir_input.update()
+
+    jmeter_dir_picker.on_result = on_jmeter_file_selected
+
     testcase_dir_picker = FilePicker()
     page.overlay.append(testcase_dir_picker)
     testcase_dir_input = TextField(
-        label="📂 مسیر دایرکتوری سناریو آزمون",
+        label="📂 مسیر فایل سناریو آزمون",
         read_only=True
     )
 
@@ -56,17 +92,6 @@ def build_tab_web_load_test_and_estimation(page: Page):
     ramp_up_period = TextField(label="مقدار زمان لازم برای ایجاد تردها (ثانیه)", value="30", keyboard_type=KeyboardType.NUMBER)
     loop_count = TextField(label="تعداد درخواست های هر ترد به هر api", value="30", keyboard_type=KeyboardType.NUMBER)
 
-    operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
-    operational_time_unit = Dropdown(
-        label="واحد زمان",
-        options=[
-            dropdown.Option("ثانیه"),
-            dropdown.Option("دقیقه"),
-            dropdown.Option("ساعت")
-        ],
-        value="ثانیه"
-    )
-
     load_status_tile = ListTile(
         title=Text("در حال اجرای تست بار"),
         subtitle=Text("لطفا منتظر بمانید..."),
@@ -74,13 +99,6 @@ def build_tab_web_load_test_and_estimation(page: Page):
         bgcolor="#dfdfdf",
         width=600,
         visible=False
-    )
-
-    reliability_tile = ListTile(
-        title=Text(""),
-        visible=False,
-        bgcolor='#dfdfdf',
-        width=600
     )
 
     load_metrics_tile = ListTile(
@@ -97,7 +115,7 @@ def build_tab_web_load_test_and_estimation(page: Page):
         jtl_path = os.path.join(results_dir, f"{jmx_name}.jtl")
         if os.path.exists(jtl_path):
             os.remove(jtl_path)
-        jmeter_path = r"D:\University\Master Project\Software\Load Test\apache-jmeter-5.6.3\apache-jmeter-5.6.3\bin\jmeter.bat"
+        jmeter_path = jmeter_dir_input.value
         cmd = [
             jmeter_path,
             "-n",
@@ -189,7 +207,6 @@ def build_tab_web_load_test_and_estimation(page: Page):
     def perform_load_test(e):
         load_status_tile.visible = True
         load_metrics_tile.visible = False
-        reliability_tile.visible = False
         page.update()
 
         jtl_path = run_load_test()
@@ -200,21 +217,10 @@ def build_tab_web_load_test_and_estimation(page: Page):
         load_metrics_tile.title.value = load_results_str
         load_metrics_tile.visible = True
 
-        reliability = 0
-        if operational_time_unit.value == 'ساعت':
-            operational_time_value = int(operational_time.value) * 60 * 60
-        elif operational_time_unit.value == 'دقیقه':
-            operational_time_value = int(operational_time.value) * 60
-        else:
-            operational_time_value = int(operational_time.value)
-        
-        reliability = test_and_estimation_reliability(load_test_results['تعداد خطاها'], load_test_results['زمان کل تست به ثانیه'], operational_time_value)
-        reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
-        reliability_tile.visible = True
         page.update()
 
     start_tests_button = ElevatedButton(
-        text="اجرای آزمون‌ها و محاسبه قابلیت اطمینان",
+        text="شروع آزمون",
         bgcolor=Colors.BLUE_500,
         color=Colors.WHITE,
         style=ButtonStyle(
@@ -226,22 +232,18 @@ def build_tab_web_load_test_and_estimation(page: Page):
 
     return Column([
         Container(
-            content=Text("مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
+            content=Text("آزمون بار و استرس", size=20, weight="bold", text_align="center"),
             alignment=alignment.center,
             padding=30
         ),
         Column([
+            jmeter_dir_row,
             testcase_dir_row,
             number_of_threads,
             ramp_up_period,
             loop_count,
-            Row([
-                operational_time,
-                operational_time_unit
-            ], expand=True),
             start_tests_button
         ], width=450, horizontal_alignment='center'),
         load_status_tile,
-        reliability_tile,
         load_metrics_tile
     ], spacing=30, expand=True, horizontal_alignment='center')

@@ -34,7 +34,7 @@ def main(page: Page):
     ])
 
     web_load_test_tabs = Tabs(tabs=[
-        Tab(text="تست نرم‌افزار تحت وب", content=webLoad.build_tab_web_load_test_and_estimation(page)),
+        Tab(text="تست نرم‌افزار تحت وب", content=webLoad.build_tab_web_load_test(page)),
     ])
 
     web_tabs = Tabs(tabs=[
