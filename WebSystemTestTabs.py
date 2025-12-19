@@ -489,7 +489,8 @@ def build_tab_growth_reliability(page: Page):
     )
 
     image_path = plot_failure_rate_change(results, project_name)
-    image_control = Image(src=image_path, width=400, height=300)
+    image_tip = Tips.FAILURE_RATE_CHANGE
+    image_control = Image(src=image_path, width=400, height=300, tooltip=image_tip)
 
     selected_plot = Dropdown(
         label="انتخاب نمودار",
@@ -501,7 +502,7 @@ def build_tab_growth_reliability(page: Page):
     )
 
     def on_select_plot(e):
-        nonlocal image_path
+        nonlocal image_path, image_tip
         if selected_plot.value == 'نمودار تغییر نرخ خرابی':
             image_path = plot_failure_rate_change(results, project_name)
             image_tip = Tips.FAILURE_RATE_CHANGE
