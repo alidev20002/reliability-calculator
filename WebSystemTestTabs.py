@@ -162,8 +162,14 @@ def build_tab_manage_tests(page: Page):
 
     testcase_dir_picker.on_result = on_file_selected
 
+    percent_input_text = Text("0%")
+
+    def on_percent_input_change(e):
+        percent_input_text.value = f"{int(e.control.value)}%"
+        page.update()
+
     max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
-    percent_input = Slider(min=0, max=max_percent_value, divisions=max_percent_value, label="{value}%", value=0)
+    percent_input = Slider(min=0, max=max_percent_value, divisions=max_percent_value, label="{value}%", value=0, on_change=on_percent_input_change)
     new_test_name_input = TextField(label="نام سناریو جدید")
     test_list_column = Column(scroll=ScrollMode.AUTO, height=300)
     user_message = Text()
@@ -272,6 +278,7 @@ def build_tab_manage_tests(page: Page):
                 Row([
                     Text('ضریب اهمیت سناریوی آزمون (درصد): '),
                     percent_input,
+                    percent_input_text
                 ]),
                 ElevatedButton(
                     text="ذخیره سناریو",
