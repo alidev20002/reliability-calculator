@@ -429,7 +429,7 @@ def build_tab_growth_model_run_tests(page: Page):
         })
         save_results(results, project_name)
 
-    number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
+    number_of_tests = TextField(label="تعداد کل آزمون‌های هر آزمونگر", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
     start_tests_button = ElevatedButton(
@@ -802,8 +802,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         mtbf_tile.visible = True
         page.update()
 
-    test_duration = TextField(label="مقدار زمان آزمون", value="10", keyboard_type=KeyboardType.NUMBER)
-    number_of_tests = TextField(label="تعداد آزمون", value="10", keyboard_type=KeyboardType.NUMBER)
+    test_duration = TextField(label="مقدار زمان کل فرایند آزمون هر آزمونگر", value="10", keyboard_type=KeyboardType.NUMBER)
+    number_of_tests = TextField(label="تعداد آزمون‌های هر آزمونگر", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
     operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
