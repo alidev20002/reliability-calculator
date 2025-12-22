@@ -549,8 +549,14 @@ def build_tab_growth_reliability(page: Page):
         width=200
     )
 
+    reliability_formula_image = Image(src='', width=200, height=100)
+
     reliability_tile = ListTile(
         title=Text(""),
+        subtitle=Column([
+            reliability_formula_image,
+            Image(src='images/growth.png', width=200, height=100)
+        ], horizontal_alignment='end'),
         visible=False,
         bgcolor='#dfdfdf',
         width=500
@@ -558,9 +564,11 @@ def build_tab_growth_reliability(page: Page):
 
     mtbf_tile = ListTile(
         title=Text("", rtl=True),
+        subtitle=Image(src='images/mtbf.png', width=200, height=100),
         visible=False,
         bgcolor='#dfdfdf',
         width=500,
+        tooltip=Tips.MTBF
     )
 
     def calculate_reliability(e):
@@ -570,6 +578,7 @@ def build_tab_growth_reliability(page: Page):
 
         reliability = 0
         error = None
+        reliability_formula_image_path = ''
         if operational_time_unit.value == 'ساعت':
             operational_time_value = int(operational_time.value) * 60 * 60
         elif operational_time_unit.value == 'دقیقه':
@@ -580,15 +589,19 @@ def build_tab_growth_reliability(page: Page):
         if selected_model.value == 'مدل Goel Okumoto':
             reliability = estimate_goel_okumoto(results, operational_time_value)
             reliability_tip = Tips.GOEL_OKUMOTO
+            reliability_formula_image_path = 'images/goel.png'
         elif selected_model.value == 'مدل Weibull':
             reliability, error = estimate_weibull(results, operational_time_value)
             reliability_tip = Tips.WEIBULL
+            reliability_formula_image_path = 'images/weibull.png'
         elif selected_model.value == 'مدل Log-Logistics':
             reliability = estimate_log_logistics(results, operational_time_value)
             reliability_tip = Tips.LOG_LOGISTICS
+            reliability_formula_image_path = 'images/log-logistics.png'
         elif selected_model.value == 'مدل Duane':
             reliability = estimate_duane(results, operational_time_value)
             reliability_tip = Tips.DUANE
+            reliability_formula_image_path = 'images/duane.png'
         
         if error:
             reliability_tile.title.value = error
@@ -596,6 +609,7 @@ def build_tab_growth_reliability(page: Page):
             reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         reliability_tile.visible = True
         reliability_tile.tooltip = reliability_tip
+        reliability_formula_image.src = reliability_formula_image_path
         page.update()
 
     def calculate_mtbf(e):
@@ -659,7 +673,6 @@ def build_tab_growth_reliability(page: Page):
                     padding=Padding(15, 15, 15, 15)
                 ),
                 on_click=calculate_mtbf,
-                tooltip=Tips.MTBF
             )
         ], expand=True, alignment='center'),
         reliability_tile,
@@ -826,6 +839,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
     reliability_tile = ListTile(
         title=Text(""),
+        subtitle=Image(src='images/test-estimate.png', width=200, height=100),
         visible=False,
         bgcolor='#dfdfdf',
         width=600
@@ -833,6 +847,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
     mtbf_tile = ListTile(
         title=Text("", rtl=True),
+        subtitle=Image(src='images/mtbf.png', width=200, height=100),
         visible=False,
         bgcolor='#dfdfdf',
         width=600,
