@@ -149,7 +149,7 @@ def build_tab_manage_tests(page: Page):
                     shape= RoundedRectangleBorder(8),
                     padding=Padding(15, 15, 15, 15)
                 ),
-                on_click=lambda e: testcase_dir_picker.pick_files(allow_multiple=False)
+                on_click=lambda e: testcase_dir_picker.pick_files(allowed_extensions=['py'], allow_multiple=False)
             )
         ],
         spacing=10
