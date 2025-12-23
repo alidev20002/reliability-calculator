@@ -299,7 +299,8 @@ def build_tab_manage_tests(page: Page):
     ], spacing=50)
 
 def build_tab_growth_model_run_tests(page: Page):
-    project_name = get_selected_project()
+    project_config = load_prject_config()
+    project_name = project_config['selected_project']
     all_testcases = load_all_testcases(project_name)
 
     number_of_failures = 0
@@ -338,13 +339,20 @@ def build_tab_growth_model_run_tests(page: Page):
                 env.update(row.dropna().astype(str).to_dict())
                 try:
                     result = subprocess.run(
-                        ["python", test_case_path],
+                        [
+                            "java",
+                            "-jar",
+                            project_config["sikulix_path"],
+                            "-c",
+                            "-r",
+                            test_case_path
+                        ],
                         env=env,
                         capture_output=True,
                         text=True, timeout=300
                     )
                     output = result.stdout.strip().splitlines()
-                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+                    outcome = "fail" if any("error" in line for line in output) else "pass"
 
                     df.at[idx, "result"] = outcome
                     df.to_csv(csv_path, index=False)
@@ -683,7 +691,8 @@ def build_tab_growth_reliability(page: Page):
     ], horizontal_alignment='center')
 
 def build_tab_test_and_estimation_model_run_tests(page: Page):
-    project_name = get_selected_project()
+    project_config = load_prject_config()
+    project_name = project_config['selected_project']
     all_testcases = load_all_testcases(project_name)
 
     number_of_failures = 0
@@ -721,13 +730,20 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                     env.update(row.dropna().astype(str).to_dict())
                     try:
                         result = subprocess.run(
-                            ["python", test_case_path],
+                            [
+                                "java",
+                                "-jar",
+                                project_config["sikulix_path"],
+                                "-c",
+                                "-r",
+                                test_case_path
+                            ],
                             env=env,
                             capture_output=True,
                             text=True, timeout=300
                         )
                         output = result.stdout.strip().splitlines()
-                        outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+                        outcome = "fail" if any("error" in line for line in output) else "pass"
 
                         df.at[idx, "result"] = outcome
                         df.to_csv(csv_path, index=False)
