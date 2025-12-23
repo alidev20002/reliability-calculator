@@ -8,7 +8,7 @@ def load_prject_config():
     if os.path.exists(PROJECT_CONFIG):
         with open(PROJECT_CONFIG, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {'selected_project': '', 'projects': []}
+    return {'selected_project': 'default', 'jmeter_path': '', 'sikulix_path': '', 'projects': []}
 
 def save_project_config(data):
     with open(PROJECT_CONFIG, "w", encoding="utf-8") as f:

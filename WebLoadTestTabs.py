@@ -6,19 +6,26 @@ import csv
 import statistics
 
 PROJECT_CONFIG = 'project_config.json'
-def get_selected_project():
+
+def load_prject_config():
     if os.path.exists(PROJECT_CONFIG):
         with open(PROJECT_CONFIG, "r", encoding="utf-8") as f:
-            return json.load(f)['selected_project']
-    return 'default'
+            return json.load(f)
+    return {'selected_project': 'default', 'jmeter_path': '', 'sikulix_path': '', 'projects': []}
+
+def save_project_config(data):
+    with open(PROJECT_CONFIG, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def build_tab_web_load_test(page: Page):
-    project_name = get_selected_project()
+    project_config = load_prject_config()
+    project_name = project_config['selected_project']
     os.makedirs(f"web/{project_name}/loadtest", exist_ok=True)
 
     jmeter_dir_picker = FilePicker()
     page.overlay.append(jmeter_dir_picker)
     jmeter_dir_input = TextField(
+        value=project_config['jmeter_path'],
         label="📂 مسیر فایل اجرایی ابزار jmeter (jmeter.bat یا jmeter.sh)",
         read_only=True
     )
@@ -49,6 +56,8 @@ def build_tab_web_load_test(page: Page):
         if e.files:
             jmeter_dir_input.value = e.files[0].path
             jmeter_dir_input.update()
+            project_config['jmeter_path'] = e.files[0].path
+            save_project_config(project_config)
 
     jmeter_dir_picker.on_result = on_jmeter_file_selected
 
