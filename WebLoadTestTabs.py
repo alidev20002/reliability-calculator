@@ -13,53 +13,10 @@ def load_prject_config():
             return json.load(f)
     return {'selected_project': 'default', 'jmeter_path': '', 'sikulix_path': '', 'projects': []}
 
-def save_project_config(data):
-    with open(PROJECT_CONFIG, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
 def build_tab_web_load_test(page: Page):
     project_config = load_prject_config()
     project_name = project_config['selected_project']
     os.makedirs(f"web/{project_name}/loadtest", exist_ok=True)
-
-    jmeter_dir_picker = FilePicker()
-    page.overlay.append(jmeter_dir_picker)
-    jmeter_dir_input = TextField(
-        value=project_config['jmeter_path'],
-        label="📂 مسیر فایل اجرایی ابزار jmeter (jmeter.bat یا jmeter.sh)",
-        read_only=True
-    )
-
-    jmeter_dir_row = Row(
-        controls=[
-            jmeter_dir_input,
-            ElevatedButton(
-                text="انتخاب فایل",
-                icon=Icons.UPLOAD_FILE,
-                bgcolor=Colors.BLUE_500,
-                color=Colors.WHITE,
-                style=ButtonStyle(
-                    shape= RoundedRectangleBorder(8),
-                    padding=Padding(15, 15, 15, 15)
-                ),
-                on_click=lambda e: jmeter_dir_picker.pick_files(
-                    file_type=FilePickerFileType.CUSTOM,
-                    allowed_extensions=['bat', 'sh'],
-                    allow_multiple=False
-                )
-            )
-        ],
-        spacing=10
-    )
-
-    def on_jmeter_file_selected(e):
-        if e.files:
-            jmeter_dir_input.value = e.files[0].path
-            jmeter_dir_input.update()
-            project_config['jmeter_path'] = e.files[0].path
-            save_project_config(project_config)
-
-    jmeter_dir_picker.on_result = on_jmeter_file_selected
 
     testcase_dir_picker = FilePicker()
     page.overlay.append(testcase_dir_picker)
@@ -124,7 +81,7 @@ def build_tab_web_load_test(page: Page):
         jtl_path = os.path.join(results_dir, f"{jmx_name}.jtl")
         if os.path.exists(jtl_path):
             os.remove(jtl_path)
-        jmeter_path = jmeter_dir_input.value
+        jmeter_path = project_config['jmeter_path']
         cmd = [
             jmeter_path,
             "-n",
@@ -246,7 +203,6 @@ def build_tab_web_load_test(page: Page):
             padding=30
         ),
         Column([
-            jmeter_dir_row,
             testcase_dir_row,
             number_of_threads,
             ramp_up_period,

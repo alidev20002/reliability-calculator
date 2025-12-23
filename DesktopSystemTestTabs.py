@@ -18,11 +18,14 @@ TEST_CASES_FILE = 'testcases.json'
 GROWTH_RESULTS_FILE = 'results.json'
 LLM_GENERATE_DATA_API_URL = 'http://localhost:5000/generate_test_cases'
 
-def get_selected_project():
+def load_prject_config():
     if os.path.exists(PROJECT_CONFIG):
         with open(PROJECT_CONFIG, "r", encoding="utf-8") as f:
-            return json.load(f)['selected_project']
-    return 'default'
+            return json.load(f)
+    return {'selected_project': 'default', 'jmeter_path': '', 'sikulix_path': '', 'projects': []}
+
+def get_selected_project():
+    return load_prject_config()['selected_project']
 
 def load_all_testcases(project_name):
     os.makedirs(f"desktop/{project_name}/systemtest", exist_ok=True)

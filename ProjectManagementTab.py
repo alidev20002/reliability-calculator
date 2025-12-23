@@ -82,6 +82,84 @@ def build_tab_project_management(page: Page):
 
     refresh_project_list()
 
+    jmeter_dir_picker = FilePicker()
+    page.overlay.append(jmeter_dir_picker)
+    jmeter_dir_input = TextField(
+        value=project_config['jmeter_path'],
+        label="📂 مسیر فایل اجرایی ابزار jmeter (jmeter.bat یا jmeter.sh)",
+        read_only=True
+    )
+
+    jmeter_dir_row = Row(
+        controls=[
+            jmeter_dir_input,
+            ElevatedButton(
+                text="انتخاب فایل",
+                icon=Icons.UPLOAD_FILE,
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=lambda e: jmeter_dir_picker.pick_files(
+                    file_type=FilePickerFileType.CUSTOM,
+                    allowed_extensions=['bat', 'sh'],
+                    allow_multiple=False
+                )
+            )
+        ],
+        spacing=10
+    )
+
+    def on_jmeter_file_selected(e):
+        if e.files:
+            jmeter_dir_input.value = e.files[0].path
+            jmeter_dir_input.update()
+            project_config['jmeter_path'] = e.files[0].path
+            save_project_config(project_config)
+
+    jmeter_dir_picker.on_result = on_jmeter_file_selected
+
+    sikulix_dir_picker = FilePicker()
+    page.overlay.append(sikulix_dir_picker)
+    sikulix_dir_input = TextField(
+        value=project_config['sikulix_path'],
+        label="📂 مسیر فایل اجرایی ابزار sikulix (sikulixide-VERSION.jar)",
+        read_only=True
+    )
+
+    sikulix_dir_row = Row(
+        controls=[
+            sikulix_dir_input,
+            ElevatedButton(
+                text="انتخاب فایل",
+                icon=Icons.UPLOAD_FILE,
+                bgcolor=Colors.BLUE_500,
+                color=Colors.WHITE,
+                style=ButtonStyle(
+                    shape= RoundedRectangleBorder(8),
+                    padding=Padding(15, 15, 15, 15)
+                ),
+                on_click=lambda e: sikulix_dir_picker.pick_files(
+                    file_type=FilePickerFileType.CUSTOM,
+                    allowed_extensions=['jar'],
+                    allow_multiple=False
+                )
+            )
+        ],
+        spacing=10
+    )
+
+    def on_sikulix_file_selected(e):
+        if e.files:
+            sikulix_dir_input.value = e.files[0].path
+            sikulix_dir_input.update()
+            project_config['sikulix_path'] = e.files[0].path
+            save_project_config(project_config)
+
+    sikulix_dir_picker.on_result = on_sikulix_file_selected
+
     return Column([
         Container(
             content=Text("مدیریت پروژه‌ها ", size=20, weight="bold", text_align="center"),
@@ -125,7 +203,9 @@ def build_tab_project_management(page: Page):
                         on_click=select_project
                     ),
                 ], horizontal_alignment='center'),
-                user_message
-            ], horizontal_alignment="start", spacing=50)
+                user_message,
+                jmeter_dir_row,
+                sikulix_dir_row
+            ], horizontal_alignment="start", spacing=30)
         ], alignment='start', vertical_alignment='start', expand=True, spacing=50),
     ], spacing=50)
