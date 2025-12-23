@@ -11,6 +11,7 @@ import numpy as np
 from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
+import Tips
 
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
@@ -132,7 +133,7 @@ def build_tab_manage_tests(page: Page):
     testcase_dir_picker = FilePicker()
     page.overlay.append(testcase_dir_picker)
     testcase_dir_input = TextField(
-        label="📂 مسیر دایرکتوری سناریو آزمون",
+        label="📂 مسیر فایل سناریو آزمون",
         read_only=True
     )
 
@@ -161,8 +162,14 @@ def build_tab_manage_tests(page: Page):
 
     testcase_dir_picker.on_result = on_file_selected
 
+    percent_input_text = Text("0%")
+
+    def on_percent_input_change(e):
+        percent_input_text.value = f"{int(e.control.value)}%"
+        page.update()
+
     max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
-    percent_input = Slider(min=0, max=max_percent_value, divisions=max_percent_value, label="{value}%", value=0)
+    percent_input = Slider(min=0, max=max_percent_value, divisions=max_percent_value, label="{value}%", value=0, on_change=on_percent_input_change)
     new_test_name_input = TextField(label="نام سناریو جدید")
     test_list_column = Column(scroll=ScrollMode.AUTO, height=300)
     user_message = Text()
@@ -271,6 +278,7 @@ def build_tab_manage_tests(page: Page):
                 Row([
                     Text('ضریب اهمیت سناریوی آزمون (درصد): '),
                     percent_input,
+                    percent_input_text
                 ]),
                 ElevatedButton(
                     text="ذخیره سناریو",
@@ -428,7 +436,7 @@ def build_tab_growth_model_run_tests(page: Page):
         })
         save_results(results, project_name)
 
-    number_of_tests = TextField(label="تعداد کل تست‌ها", value="10", keyboard_type=KeyboardType.NUMBER)
+    number_of_tests = TextField(label="تعداد کل آزمون‌های هر آزمونگر", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
     start_tests_button = ElevatedButton(
@@ -459,6 +467,7 @@ def build_tab_growth_model_run_tests(page: Page):
 def build_tab_growth_reliability(page: Page):
     project_name = get_selected_project()
     results = load_results(project_name)
+    reliability_tip = ''
 
     rows = [
         DataRow(
@@ -487,7 +496,8 @@ def build_tab_growth_reliability(page: Page):
     )
 
     image_path = plot_failure_rate_change(results, project_name)
-    image_control = Image(src=image_path, width=400, height=300)
+    image_tip = Tips.FAILURE_RATE_CHANGE
+    image_control = Image(src=image_path, width=400, height=300, tooltip=image_tip)
 
     selected_plot = Dropdown(
         label="انتخاب نمودار",
@@ -499,13 +509,16 @@ def build_tab_growth_reliability(page: Page):
     )
 
     def on_select_plot(e):
-        nonlocal image_path
+        nonlocal image_path, image_tip
         if selected_plot.value == 'نمودار تغییر نرخ خرابی':
             image_path = plot_failure_rate_change(results, project_name)
+            image_tip = Tips.FAILURE_RATE_CHANGE
         elif selected_plot.value == 'نمودار نرخ کشف خرابی':
             image_path = plot_failure_detection_rate(results, project_name)
+            image_tip = Tips.FAILURE_DETECTION_RATE
             
         image_control.src = image_path
+        image_control.tooltip = image_tip
         page.update()
     selected_plot.on_change = on_select_plot
 
@@ -536,8 +549,14 @@ def build_tab_growth_reliability(page: Page):
         width=200
     )
 
+    reliability_formula_image = Image(src='', width=200, height=100)
+
     reliability_tile = ListTile(
         title=Text(""),
+        subtitle=Column([
+            reliability_formula_image,
+            Image(src='images/growth.png', width=200, height=100)
+        ], horizontal_alignment='end'),
         visible=False,
         bgcolor='#dfdfdf',
         width=500
@@ -545,17 +564,21 @@ def build_tab_growth_reliability(page: Page):
 
     mtbf_tile = ListTile(
         title=Text("", rtl=True),
+        subtitle=Image(src='images/mtbf.png', width=200, height=100),
         visible=False,
         bgcolor='#dfdfdf',
         width=500,
+        tooltip=Tips.MTBF
     )
 
     def calculate_reliability(e):
+        nonlocal reliability_tip
         reliability_tile.visible = False
         page.update()
 
         reliability = 0
         error = None
+        reliability_formula_image_path = ''
         if operational_time_unit.value == 'ساعت':
             operational_time_value = int(operational_time.value) * 60 * 60
         elif operational_time_unit.value == 'دقیقه':
@@ -565,18 +588,28 @@ def build_tab_growth_reliability(page: Page):
 
         if selected_model.value == 'مدل Goel Okumoto':
             reliability = estimate_goel_okumoto(results, operational_time_value)
+            reliability_tip = Tips.GOEL_OKUMOTO
+            reliability_formula_image_path = 'images/goel.png'
         elif selected_model.value == 'مدل Weibull':
             reliability, error = estimate_weibull(results, operational_time_value)
+            reliability_tip = Tips.WEIBULL
+            reliability_formula_image_path = 'images/weibull.png'
         elif selected_model.value == 'مدل Log-Logistics':
             reliability = estimate_log_logistics(results, operational_time_value)
+            reliability_tip = Tips.LOG_LOGISTICS
+            reliability_formula_image_path = 'images/log-logistics.png'
         elif selected_model.value == 'مدل Duane':
             reliability = estimate_duane(results, operational_time_value)
+            reliability_tip = Tips.DUANE
+            reliability_formula_image_path = 'images/duane.png'
         
         if error:
             reliability_tile.title.value = error
         else:
             reliability_tile.title.value = f"قابلیت اطمینان سیستم: {reliability:.4f}"
         reliability_tile.visible = True
+        reliability_tile.tooltip = reliability_tip
+        reliability_formula_image.src = reliability_formula_image_path
         page.update()
 
     def calculate_mtbf(e):
@@ -639,7 +672,7 @@ def build_tab_growth_reliability(page: Page):
                     shape= RoundedRectangleBorder(8),
                     padding=Padding(15, 15, 15, 15)
                 ),
-                on_click=calculate_mtbf
+                on_click=calculate_mtbf,
             )
         ], expand=True, alignment='center'),
         reliability_tile,
@@ -789,8 +822,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         mtbf_tile.visible = True
         page.update()
 
-    test_duration = TextField(label="مقدار زمان آزمون", value="10", keyboard_type=KeyboardType.NUMBER)
-    number_of_tests = TextField(label="تعداد آزمون", value="10", keyboard_type=KeyboardType.NUMBER)
+    test_duration = TextField(label="مقدار زمان کل فرایند آزمون هر آزمونگر", value="10", keyboard_type=KeyboardType.NUMBER)
+    number_of_tests = TextField(label="تعداد آزمون‌های هر آزمونگر", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
 
     operational_time = TextField(label="زمان عملیات سیستم", value="10", keyboard_type=KeyboardType.NUMBER)
@@ -806,6 +839,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
     reliability_tile = ListTile(
         title=Text(""),
+        subtitle=Image(src='images/test-estimate.png', width=200, height=100),
         visible=False,
         bgcolor='#dfdfdf',
         width=600
@@ -813,6 +847,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
     mtbf_tile = ListTile(
         title=Text("", rtl=True),
+        subtitle=Image(src='images/mtbf.png', width=200, height=100),
         visible=False,
         bgcolor='#dfdfdf',
         width=600,
@@ -862,8 +897,8 @@ def build_tab_test_and_estimation_calculate_test_time(page: Page):
         producer_risk__text.value = f"{int(e.control.value)}%"
         page.update()
 
-    consumer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_consumer_change)
-    producer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_producer_change)
+    consumer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_consumer_change, tooltip=Tips.CONSUMER_RISK)
+    producer_risk_percent = Slider(min=0, max=100, divisions=100, label="{value}%", value=0, on_change=on_producer_change, tooltip=Tips.PRODUCER_RISK)
     time_unit = Dropdown(
         label="واحد زمان",
         options=[
