@@ -204,8 +204,15 @@ def build_tab_project_management(page: Page):
                     ),
                 ], horizontal_alignment='center'),
                 user_message,
-                jmeter_dir_row,
-                sikulix_dir_row
-            ], horizontal_alignment="start", spacing=30)
+            ], horizontal_alignment="start", spacing=30),
+            Container(
+                Column([
+                    Text('مسیر فایل اجرایی ابزارهای آزمون مورد استفاده در ماژول', size=18, weight="bold", text_align="center"),
+                    jmeter_dir_row,
+                    sikulix_dir_row,
+                ], horizontal_alignment="center", spacing=30),
+                bgcolor="#27ddce",
+                padding=30
+            ),
         ], alignment='start', vertical_alignment='start', expand=True, spacing=50),
     ], spacing=50)
