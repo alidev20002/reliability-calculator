@@ -79,6 +79,7 @@ def build_tab_project_management(page: Page):
             user_message.value = f"پروژه '{selected_project.value}' انتخاب شد."
             user_message.color = Colors.GREEN
             page.update()
+            page.pubsub.send_all('selected_project')
 
     refresh_project_list()
 

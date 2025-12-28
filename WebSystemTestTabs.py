@@ -253,6 +253,16 @@ def build_tab_manage_tests(page: Page):
 
     refresh_test_list()
 
+    def on_message(message):
+        nonlocal all_testcases, project_name
+        if message == "selected_project":
+            project_name = get_selected_project()
+            all_testcases = load_all_testcases(project_name)
+            refresh_test_list()
+            page.update()
+
+    page.pubsub.subscribe(on_message)
+
     return Column([
         Container(
             content=Text("مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
