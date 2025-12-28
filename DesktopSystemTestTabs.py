@@ -256,6 +256,16 @@ def build_tab_manage_tests(page: Page):
 
     refresh_test_list()
 
+    def on_message(message):
+        nonlocal all_testcases, project_name
+        if message == "selected_project":
+            project_name = get_selected_project()
+            all_testcases = load_all_testcases(project_name)
+            refresh_test_list()
+            page.update()
+
+    page.pubsub.subscribe(on_message)
+
     return Column([
         Container(
             content=Text("مدیریت سناریوهای آزمون", size=20, weight="bold", text_align="center"),
@@ -397,6 +407,9 @@ def build_tab_growth_model_run_tests(page: Page):
 
     def run_testcase(e):
         nonlocal running_threads, number_of_failures, total_execution_time
+        if len(all_testcases) == 0:
+            return
+        
         total_execution_time = 0
         number_of_failures = 0
         running_threads = [False] * int(number_of_testers.value)
@@ -460,6 +473,15 @@ def build_tab_growth_model_run_tests(page: Page):
         ),
         on_click=run_testcase
     )
+
+    def on_message(message):
+        nonlocal all_testcases, project_name
+        if message == "selected_project":
+            project_name = get_selected_project()
+            all_testcases = load_all_testcases(project_name)
+            page.update()
+
+    page.pubsub.subscribe(on_message)
 
     return Column([
         Container(
@@ -776,6 +798,9 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
     def run_testcase(e):
         nonlocal running_threads, number_of_failures, total_execution_time
+        if len(all_testcases) == 0:
+            return
+        
         number_of_failures = 0
         running_threads = [False] * int(number_of_testers.value)
         thread_statuses.controls.clear()
@@ -882,6 +907,15 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         ),
         on_click=run_testcase
     )
+
+    def on_message(message):
+        nonlocal all_testcases, project_name
+        if message == "selected_project":
+            project_name = get_selected_project()
+            all_testcases = load_all_testcases(project_name)
+            page.update()
+
+    page.pubsub.subscribe(on_message)
 
     return Column([
         Container(
@@ -1135,6 +1169,14 @@ def build_tab_test_and_estimation_modify_results(page: Page):
         bgcolor='#dfdfdf',
         width=500,
     )
+
+    def on_message(message):
+        nonlocal project_name
+        if message == "selected_project":
+            project_name = get_selected_project()
+            page.update()
+
+    page.pubsub.subscribe(on_message)
 
     return Column([
         Container(
