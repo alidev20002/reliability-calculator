@@ -193,6 +193,7 @@ def build_tab_manage_tests(page: Page):
         save_all_testcases(all_testcases, project_name)
         user_message.value = f"سناریو '{name}' حذف شد."
         refresh_test_list()
+        page.pubsub.send_all('web_test_cases')
 
     def save_testcase(e):
         new_name = new_test_name_input.value
@@ -226,6 +227,7 @@ def build_tab_manage_tests(page: Page):
         user_message.value = f"سناریو '{new_name}' ذخیره شد."
         user_message.color = Colors.GREEN
         refresh_test_list()
+        page.pubsub.send_all('web_test_cases')
 
     def on_test_select(e):
         name = selected_test.value
@@ -466,6 +468,10 @@ def build_tab_growth_model_run_tests(page: Page):
     def on_message(message):
         nonlocal all_testcases, project_name
         if message == "selected_project":
+            project_name = get_selected_project()
+            all_testcases = load_all_testcases(project_name)
+            page.update()
+        elif message == "web_test_cases":
             project_name = get_selected_project()
             all_testcases = load_all_testcases(project_name)
             page.update()
@@ -892,6 +898,10 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     def on_message(message):
         nonlocal all_testcases, project_name
         if message == "selected_project":
+            project_name = get_selected_project()
+            all_testcases = load_all_testcases(project_name)
+            page.update()
+        elif message == "web_test_cases":
             project_name = get_selected_project()
             all_testcases = load_all_testcases(project_name)
             page.update()
