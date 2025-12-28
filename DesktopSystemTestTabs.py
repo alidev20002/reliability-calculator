@@ -461,6 +461,7 @@ def build_tab_growth_model_run_tests(page: Page):
             "failure_rate": cumulative_failures / cumulative_time
         })
         save_results(results, project_name)
+        page.pubsub.send_all('desktop_growth_results')
 
     number_of_tests = TextField(label="تعداد کل آزمون‌های هر آزمونگر", value="10", keyboard_type=KeyboardType.NUMBER)
     number_of_testers = TextField(label="تعداد آزمونگرها", value="1", keyboard_type=KeyboardType.NUMBER)
@@ -478,11 +479,7 @@ def build_tab_growth_model_run_tests(page: Page):
 
     def on_message(message):
         nonlocal all_testcases, project_name
-        if message == "selected_project":
-            project_name = get_selected_project()
-            all_testcases = load_all_testcases(project_name)
-            page.update()
-        elif message == "desktop_test_cases":
+        if message == "selected_project" or message == "desktop_test_cases":
             project_name = get_selected_project()
             all_testcases = load_all_testcases(project_name)
             page.update()
@@ -666,6 +663,44 @@ def build_tab_growth_reliability(page: Page):
         mtbf_tile.title.value = f"شاخص میانگین زمان بین خرابی‌ها (MTBF): {mtbf:.4f} {operational_time_unit.value}"
         mtbf_tile.visible = True
         page.update()
+    
+    def on_message(message):
+        nonlocal project_name, results, rows, table, image_path, image_tip, image_control
+        if message == "selected_project" or message == "desktop_growth_results":
+            project_name = get_selected_project()
+            results = load_results(project_name)
+            rows = [
+                DataRow(
+                    cells=[
+                        DataCell(Text(str(idx + 1))),
+                        DataCell(Text(str(item["failures"]))),
+                        DataCell(Text(f"{item["time"] // 60:02}:{item["time"] % 60:02}")),
+                        DataCell(Text(str(item["cumulative_failures"]))),
+                        DataCell(Text(f"{item["cumulative_time"] // 60:02}:{item["cumulative_time"] % 60:02}")),
+                        DataCell(Text(f"{item['failure_rate']:.4f}"))
+                    ]
+                )
+                for idx, item in enumerate(results)
+            ]
+
+            table = DataTable(
+                columns=[
+                    DataColumn(label=Text("ردیف")),
+                    DataColumn(label=Text("تعداد شکست‌ها")),
+                    DataColumn(label=Text("زمان")),
+                    DataColumn(label=Text("شکست‌های تجمعی")),
+                    DataColumn(label=Text("زمان تجمعی")),
+                    DataColumn(label=Text("نرخ شکست")),
+                ],
+                rows=rows
+            )
+
+            image_path = plot_failure_rate_change(results, project_name)
+            image_tip = Tips.FAILURE_RATE_CHANGE
+            image_control = Image(src=image_path, width=400, height=300, tooltip=image_tip)
+            page.update()
+
+    page.pubsub.subscribe(on_message)
 
     return Column([
         Container(
@@ -916,11 +951,7 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
     def on_message(message):
         nonlocal all_testcases, project_name
-        if message == "selected_project":
-            project_name = get_selected_project()
-            all_testcases = load_all_testcases(project_name)
-            page.update()
-        elif message == "desktop_test_cases":
+        if message == "selected_project" or message == "desktop_test_cases":
             project_name = get_selected_project()
             all_testcases = load_all_testcases(project_name)
             page.update()
