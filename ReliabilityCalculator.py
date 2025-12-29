@@ -4,6 +4,9 @@ import WebSystemTestTabs as webSys
 import DesktopSystemTestTabs as deskSys
 import WebLoadTestTabs as webLoad
 import ProjectManagementTab as pm
+import matplotlib
+
+matplotlib.use("Agg") 
 
 os.makedirs('web', exist_ok=True)
 os.makedirs('desktop', exist_ok=True)

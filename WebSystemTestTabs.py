@@ -60,7 +60,6 @@ def generate_input_data(project_name, test_case_name, test_case_path, tester_id,
     csv_path = os.path.join(current_dir, csv_path)
 
     html_path = os.path.join(dir_name, 'katalon_test.html')
-    print(html_path)
     request_body = {
         'katalon_path': html_path,
         'output_csv_path': csv_path,
@@ -672,21 +671,12 @@ def build_tab_growth_reliability(page: Page):
                 for idx, item in enumerate(results)
             ]
 
-            table = DataTable(
-                columns=[
-                    DataColumn(label=Text("ردیف")),
-                    DataColumn(label=Text("تعداد شکست‌ها")),
-                    DataColumn(label=Text("زمان")),
-                    DataColumn(label=Text("شکست‌های تجمعی")),
-                    DataColumn(label=Text("زمان تجمعی")),
-                    DataColumn(label=Text("نرخ شکست")),
-                ],
-                rows=rows
-            )
+            table.rows = rows
 
             image_path = plot_failure_rate_change(results, project_name)
             image_tip = Tips.FAILURE_RATE_CHANGE
-            image_control = Image(src=image_path, width=400, height=300, tooltip=image_tip)
+            image_control.src = image_path
+            image_control.tooltip = image_tip
             page.update()
 
     page.pubsub.subscribe(on_message)
