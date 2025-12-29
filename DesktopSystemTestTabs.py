@@ -316,11 +316,10 @@ def build_tab_growth_model_run_tests(page: Page):
 
     number_of_failures = 0
     total_execution_time = 0
-    running_threads = []
     thread_statuses = Column(width=600, spacing=10, scroll=ScrollMode.AUTO)
 
     def start_tester_test(testerId):
-        nonlocal number_of_failures, total_execution_time, running_threads
+        nonlocal number_of_failures, total_execution_time
         start_time = time.time()
 
         for test_case in all_testcases:
@@ -335,8 +334,6 @@ def build_tab_growth_model_run_tests(page: Page):
                 thread_statuses.controls[testerId].subtitle = Text(f"خطا در ساخت داده ورودی!")
                 thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
                 page.update()
-
-                running_threads[testerId] = False
                 return
 
             df = pd.read_csv(csv_path)
@@ -374,7 +371,6 @@ def build_tab_growth_model_run_tests(page: Page):
 
                         total_execution_time += elapsed
                         number_of_failures += 1
-                        running_threads[testerId] = False
 
                         thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد\nزمان سپری شده: {elapsed_formatted}")
                         thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
@@ -389,7 +385,6 @@ def build_tab_growth_model_run_tests(page: Page):
 
                     total_execution_time += elapsed
                     number_of_failures += 1
-                    running_threads[testerId] = False
 
                     thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد\nزمان سپری شده: {elapsed_formatted}")
                     thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
@@ -400,20 +395,18 @@ def build_tab_growth_model_run_tests(page: Page):
         elapsed_formatted = f"{elapsed // 60:02}:{elapsed % 60:02}"
 
         total_execution_time += elapsed
-        running_threads[testerId] = False
 
         thread_statuses.controls[testerId].subtitle = Text(f"همه آزمون‌ها بدون خطا پاس شدند\nزمان سپری شده: {elapsed_formatted}")
         thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
         page.update()
 
     def run_testcase(e):
-        nonlocal running_threads, number_of_failures, total_execution_time
+        nonlocal number_of_failures, total_execution_time
         if len(all_testcases) == 0:
             return
         
         total_execution_time = 0
         number_of_failures = 0
-        running_threads = [False] * int(number_of_testers.value)
         thread_statuses.controls.clear()
         start_tests_button.disabled = True
 
@@ -426,14 +419,9 @@ def build_tab_growth_model_run_tests(page: Page):
                     bgcolor="#dfdfdf"
                 )
             )
-            t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
-            t.start()
-            running_threads[i] = True
+            start_tester_test(testerId=i)
         
         page.update()
-
-        while (True in running_threads):
-            pass
 
         start_tests_button.disabled = False
 
