@@ -16,7 +16,7 @@ import Tips
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
 GROWTH_RESULTS_FILE = 'results.json'
-LLM_GENERATE_DATA_API_URL = 'http://localhost:5000/generate_test_cases'
+LLM_GENERATE_DATA_API_URL = 'http://localhost:5050/generate_test_cases'
 
 def load_prject_config():
     if os.path.exists(PROJECT_CONFIG):
