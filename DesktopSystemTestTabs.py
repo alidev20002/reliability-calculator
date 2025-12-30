@@ -62,9 +62,8 @@ def generate_input_data(project_name, test_case_name, test_case_path, tester_id,
     csv_path = os.path.join(model_dir, csv_filename)
     csv_path = os.path.join(current_dir, csv_path)
 
-    html_path = os.path.join(dir_name, 'katalon_test.html')
     request_body = {
-        'katalon_path': html_path,
+        'source_dir': dir_name,
         'output_csv_path': csv_path,
         'num_test_cases': count
     }
