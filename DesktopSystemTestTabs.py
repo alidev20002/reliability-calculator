@@ -41,13 +41,13 @@ def save_all_testcases(data, project_name):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 def load_results(project_name):
-    if os.path.exists(f"desktop/{project_name}/systemtest/growth/{GROWTH_RESULTS_FILE}"):
-        with open(f"desktop/{project_name}/systemtest/growth/{GROWTH_RESULTS_FILE}", "r", encoding="utf-8") as f:
+    if os.path.exists(f"desktop/{project_name}/{GROWTH_RESULTS_FILE}"):
+        with open(f"desktop/{project_name}/{GROWTH_RESULTS_FILE}", "r", encoding="utf-8") as f:
             return json.load(f)
     return []
 
 def save_results(data, project_name):
-    with open(f"desktop/{project_name}/systemtest/growth/{GROWTH_RESULTS_FILE}", "w", encoding="utf-8") as f:
+    with open(f"desktop/{project_name}/{GROWTH_RESULTS_FILE}", "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 def generate_input_data(project_name, test_case_name, test_case_path, tester_id, count, is_growth):
@@ -91,8 +91,8 @@ def plot_failure_rate_change(data, project_name):
     ax.set_ylabel("Cumulative Failures")
     ax.set_title("Failure Rate vs Cumulative Failures")
 
-    os.makedirs(f"desktop/{project_name}/systemtest/growth/plots", exist_ok=True)
-    filename = f"desktop/{project_name}/systemtest/growth/plots/plot_failure_rate_change.png"
+    os.makedirs(f"desktop/{project_name}/plots", exist_ok=True)
+    filename = f"desktop/{project_name}/plots/plot_failure_rate_change.png"
     plt.savefig(filename)
     plt.close(fig)
 
@@ -108,8 +108,8 @@ def plot_failure_detection_rate(data, project_name):
     ax.set_ylabel("Number of Failures")
     ax.set_title("Number of Failures vs Cumulative Time")
 
-    os.makedirs(f"desktop/{project_name}/systemtest/growth/plots", exist_ok=True)
-    filename = f"desktop/{project_name}/systemtest/growth/plots/plot_failure_detection_rate.png"
+    os.makedirs(f"desktop/{project_name}/plots", exist_ok=True)
+    filename = f"desktop/{project_name}/plots/plot_failure_detection_rate.png"
     plt.savefig(filename)
     plt.close(fig)
 
@@ -433,6 +433,9 @@ def build_tab_growth_model_run_tests(page: Page):
             )
         )
         page.update()
+
+        if total_execution_time == 0:
+            return
 
         results = load_results(project_name)
         last_result = results[-1] if results else {"cumulative_failures": 0, "cumulative_time": 0}
