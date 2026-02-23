@@ -58,6 +58,52 @@ def build_tab_web_load_test(page: Page):
     ramp_up_period = TextField(label="مقدار زمان لازم برای ایجاد تردها (ثانیه)", value="30", keyboard_type=KeyboardType.NUMBER)
     loop_count = TextField(label="تعداد درخواست های هر ترد به هر api", value="30", keyboard_type=KeyboardType.NUMBER)
 
+    error_percent_field = TextField(
+        label="حداکثر درصد خطای قابل قبول",
+        value="0",
+        suffix_text="%",
+        keyboard_type=KeyboardType.NUMBER,
+        max_length=6,
+    )
+
+    def on_error_percent_field_change(e):
+        raw = e.control.value
+        # Keep only digits and one dot
+        filtered = ""
+        dot_seen = False
+        for ch in raw:
+            if ch.isdigit():
+                filtered += ch
+            elif ch == "." and not dot_seen:
+                filtered += ch
+                dot_seen = True
+        if filtered != raw:
+            error_percent_field.value = filtered
+            page.update()
+
+    error_percent_field.on_change = on_error_percent_field_change
+
+    max_p99_field = TextField(
+        label="حداکثر صدک 99 قابل قبول",
+        value="500",
+        suffix_text="میلی ثانیه",
+        keyboard_type=KeyboardType.NUMBER,
+        max_length=4,
+    )
+
+    def on_max_p99_field_change(e):
+        raw = e.control.value
+        # Keep only digits
+        filtered = ""
+        for ch in raw:
+            if ch.isdigit():
+                filtered += ch
+        if filtered != raw:
+            max_p99_field.value = filtered
+            page.update()
+    
+    max_p99_field.on_change = on_max_p99_field_change
+
     load_status_tile = ListTile(
         title=Text("در حال اجرای تست بار"),
         subtitle=Text("لطفا منتظر بمانید..."),
@@ -207,6 +253,8 @@ def build_tab_web_load_test(page: Page):
             number_of_threads,
             ramp_up_period,
             loop_count,
+            error_percent_field,
+            max_p99_field,
             start_tests_button
         ], width=450, horizontal_alignment='center'),
         load_status_tile,
