@@ -20,7 +20,6 @@ def main(page: Page):
     # ------------------ WEB PLATFORM ------------------
 
     web_growth_method_tabs = Tabs(tabs=[
-        Tab(text="اجرای آزمون‌ها", content=webSys.build_tab_growth_model_run_tests(page)),
         Tab(text="محاسبه قابلیت اطمینان", content=webSys.build_tab_growth_reliability(page)),
     ])
 
@@ -30,25 +29,25 @@ def main(page: Page):
         Tab(text="اصلاح دستی نتایج", content=webSys.build_tab_test_and_estimation_modify_results(page)),
     ])
 
-    web_system_test_tabs = Tabs(tabs=[
-        Tab(text="مدیریت آزمون‌ها", content=webSys.build_tab_manage_tests(page)),
+    web_reliabiliy_tabs = Tabs(tabs=[
         Tab(text="محاسبه قابلیت اطمینان با مدل‌های رشد", content=web_growth_method_tabs),
         Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=web_test_and_estimation_method_tabs)
     ])
 
-    web_load_test_tabs = Tabs(tabs=[
-        Tab(text="تست نرم‌افزار تحت وب", content=webLoad.build_tab_web_load_test(page)),
+    web_system_test_tabs = Tabs(tabs=[
+        Tab(text="مدیریت آزمون‌ها", content=webSys.build_tab_manage_tests(page)),
+        Tab(text="اجرای آزمون‌ها", content=webSys.build_tab_growth_model_run_tests(page)),
     ])
 
     web_tabs = Tabs(tabs=[
-        Tab(text="تست سیستم (Katalon Recorder)", content=web_system_test_tabs),
-        Tab(text="تست بار و استرس (Apache Jmeter)", content=web_load_test_tabs)
+        Tab(text="آزمون سیستم (Katalon Recorder)", content=web_system_test_tabs),
+        Tab(text="آزمون بار و استرس (Apache Jmeter)", content=webLoad.build_tab_web_load_test(page)),
+        Tab(text="قابلیت اطمینان", content=web_reliabiliy_tabs)
     ])
 
     # ------------------ DESKTOP PLATFORM ------------------
 
     desktop_growth_method_tabs = Tabs(tabs=[
-        Tab(text="اجرای آزمون‌ها", content=deskSys.build_tab_growth_model_run_tests(page)),
         Tab(text="محاسبه قابلیت اطمینان", content=deskSys.build_tab_growth_reliability(page)),
     ])
 
@@ -58,14 +57,19 @@ def main(page: Page):
         Tab(text="اصلاح دستی نتایج", content=deskSys.build_tab_test_and_estimation_modify_results(page)),
     ])
 
-    desktop_system_test_tabs = Tabs(tabs=[
-        Tab(text="مدیریت آزمون‌ها", content=deskSys.build_tab_manage_tests(page)),
+    desktop_reliabiliy_tabs = Tabs(tabs=[
         Tab(text="محاسبه قابلیت اطمینان با مدل‌های رشد", content=desktop_growth_method_tabs),
         Tab(text="محاسبه قابلیت اطمینان با مدل تست و تخمین", content=desktop_test_and_estimation_method_tabs)
     ])
 
+    desktop_system_test_tabs = Tabs(tabs=[
+        Tab(text="مدیریت آزمون‌ها", content=deskSys.build_tab_manage_tests(page)),
+        Tab(text="اجرای آزمون‌ها", content=deskSys.build_tab_growth_model_run_tests(page)),
+    ])
+
     desktop_tabs = Tabs(tabs=[
         Tab(text="تست سیستم (Sikulix)", content=desktop_system_test_tabs),
+        Tab(text="قابلیت اطمینان", content=desktop_reliabiliy_tabs)
     ])
 
     # ------------------ Putting All Together ------------------
