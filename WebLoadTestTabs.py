@@ -6,12 +6,23 @@ import csv
 import statistics
 
 PROJECT_CONFIG = 'project_config.json'
+GROWTH_RESULTS_FILE = 'results.json'
 
 def load_prject_config():
     if os.path.exists(PROJECT_CONFIG):
         with open(PROJECT_CONFIG, "r", encoding="utf-8") as f:
             return json.load(f)
     return {'selected_project': 'default', 'jmeter_path': '', 'sikulix_path': '', 'projects': []}
+
+def load_results(project_name):
+    if os.path.exists(f"web/{project_name}/{GROWTH_RESULTS_FILE}"):
+        with open(f"web/{project_name}/{GROWTH_RESULTS_FILE}", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_results(data, project_name):
+    with open(f"web/{project_name}/{GROWTH_RESULTS_FILE}", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 def build_tab_web_load_test(page: Page):
     project_config = load_prject_config()
@@ -120,6 +131,14 @@ def build_tab_web_load_test(page: Page):
         width=600,
     )
 
+    test_result_tile = ListTile(
+        title=Text(""),
+        subtitle=Text(""),
+        bgcolor="#84c5fd",
+        width=600,
+        visible=False,
+    )
+
     def run_load_test():
         base_dir = os.path.dirname(os.path.abspath(__file__))
         results_dir = os.path.join(base_dir, f"web/{project_name}/loadtest")
@@ -141,6 +160,9 @@ def build_tab_web_load_test(page: Page):
         subprocess.run(cmd)
 
         return jtl_path
+
+    def check_test_failure(error, p99) -> bool:
+        return error > float(error_percent_field.value) or p99 > float(max_p99_field.value)
 
     def parse_jtl_csv(jtl_path):
         timestamps = []
@@ -201,6 +223,8 @@ def build_tab_web_load_test(page: Page):
 
         throughput = total_requests / test_duration_sec if test_duration_sec > 0 else 0
 
+        is_test_failed = check_test_failure(error=error_rate, p99=p99)
+
         return {
             "تعداد کل درخواست‌ها": total_requests,
             "تعداد خطاها": failed_requests,
@@ -214,22 +238,55 @@ def build_tab_web_load_test(page: Page):
             "معیار صدک 95": f"{round(p95, 2)} میلی ثانیه",
             "معیار صدک 99": f"{round(p99, 2)} میلی ثانیه",
             "تعداد درخواست پاسخ داده شده در ثانیه": f"{round(throughput, 2)} درخواست",
-        }
+        }, is_test_failed
     
     def perform_load_test(e):
         load_status_tile.visible = True
         load_metrics_tile.visible = False
+        test_result_tile.visible = False
         page.update()
 
         jtl_path = run_load_test()
-        load_test_results = parse_jtl_csv(jtl_path)
+        load_test_results, is_test_failed = parse_jtl_csv(jtl_path)
 
         load_status_tile.visible = False
         load_results_str = "\n".join([f"{k}: {v}" for k, v in load_test_results.items()])
         load_metrics_tile.title.value = load_results_str
         load_metrics_tile.visible = True
 
+        number_of_failures = 0
+        total_execution_time = int(load_test_results["زمان کل تست به ثانیه"])
+
+        if is_test_failed:
+            test_result_tile.title = Text("شکست آزمون")
+            test_result_tile.bgcolor = "#ff0d05"
+            test_result_tile.trailing = Icon(name=Icons.CANCEL)
+            number_of_failures = 1
+        else:
+            test_result_tile.title = Text("موفقیت آزمون")
+            test_result_tile.bgcolor = "#05ff2f"
+            test_result_tile.trailing = Icon(name=Icons.DONE)
+
+        test_result_tile.visible = True
+
         page.update()
+
+        if total_execution_time == 0:
+            return
+        
+        results = load_results(project_name)
+        last_result = results[-1] if results else {"cumulative_failures": 0, "cumulative_time": 0}
+        cumulative_failures = last_result["cumulative_failures"] + number_of_failures
+        cumulative_time = last_result["cumulative_time"] + total_execution_time
+        results.append({
+            "failures": number_of_failures,
+            "time": total_execution_time,
+            "cumulative_failures": cumulative_failures,
+            "cumulative_time": cumulative_time,
+            "failure_rate": cumulative_failures / cumulative_time
+        })
+        save_results(results, project_name)
+        page.pubsub.send_all('web_growth_results')
 
     start_tests_button = ElevatedButton(
         text="شروع آزمون",
@@ -258,5 +315,6 @@ def build_tab_web_load_test(page: Page):
             start_tests_button
         ], width=450, horizontal_alignment='center'),
         load_status_tile,
-        load_metrics_tile
+        load_metrics_tile,
+        test_result_tile,
     ], spacing=30, expand=True, horizontal_alignment='center')
