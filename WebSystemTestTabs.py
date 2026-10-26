@@ -12,6 +12,7 @@ from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
 import Tips
+from Utils import detect_test_framework
 
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
@@ -259,6 +260,9 @@ def build_tab_manage_tests(page: Page):
         if message == "selected_project":
             project_name = get_selected_project()
             all_testcases = load_all_testcases(project_name)
+            max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
+            percent_input.max = max_percent_value
+            percent_input.divisions = max_percent_value
             refresh_test_list()
             page.update()
 
@@ -319,18 +323,35 @@ def build_tab_growth_model_run_tests(page: Page):
         nonlocal number_of_failures, total_execution_time, running_threads
         start_time = time.time()
 
-        for test_case in all_testcases:
+        model_dir = f"web/{project_name}/systemtest/growth"
+
+        for test_case_index, test_case in enumerate(all_testcases):
             number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
 
             thread_statuses.controls[testerId].subtitle = Text(f"در حال ساخت داده آزمون برای سناریوی {test_case}")
-            page.update()
+            try:
+                page.update()
+            except:
+                pass
 
             test_case_path = all_testcases[test_case]['testcase_dir']
-            csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
+
+            # Mock input data (Update later)
+            ########################
+            # csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
+            csv_path = os.path.join(model_dir, csv_filename)
+            csv_path = os.path.join(current_dir, csv_path)
+            ########################
+
             if not csv_path:
                 thread_statuses.controls[testerId].subtitle = Text(f"خطا در ساخت داده ورودی!")
                 thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
-                page.update()
+                try:
+                    page.update()
+                except:
+                    pass
 
                 running_threads[testerId] = False
                 return
@@ -338,21 +359,45 @@ def build_tab_growth_model_run_tests(page: Page):
             df = pd.read_csv(csv_path)
             df['result'] = ''
 
-            for idx, row in df.iterrows():
+            random_df = df.sample(
+                n=min(number_of_sub_tests, len(df))
+            ).reset_index(drop=True)
+
+            for idx, row in random_df.iterrows():
                 thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case}: در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
-                page.update()
+                try:
+                    page.update()
+                except:
+                    pass
 
                 env = os.environ.copy()
                 env.update(row.dropna().astype(str).to_dict())
                 try:
+                    framework = detect_test_framework(test_case_path)
+                    if framework == "playwright":
+                        command = [
+                            "pytest",
+                            test_case_path,
+                            "-v",
+                            "--browser-channel", "chrome",
+                            "--slowmo", "1000",
+                            "--headed",
+                        ]
+                    else:
+                        command = ["python", test_case_path]
                     result = subprocess.run(
-                        ["python", test_case_path],
+                        command,
                         env=env,
                         capture_output=True,
-                        text=True, timeout=300
+                        text=True, 
+                        timeout=300
                     )
-                    output = result.stdout.strip().splitlines()
-                    outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+
+                    if framework == "playwright":
+                        outcome = "pass" if result.returncode == 0 else "fail"
+                    else:
+                        output = result.stdout.strip().splitlines()
+                        outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
 
                     df.at[idx, "result"] = outcome
                     df.to_csv(csv_path, index=False)
@@ -382,7 +427,10 @@ def build_tab_growth_model_run_tests(page: Page):
 
                     thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد\nزمان سپری شده: {elapsed_formatted}")
                     thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
-                    page.update()
+                    try:
+                        page.update()
+                    except:
+                        pass
                     return
             
         elapsed = int(time.time() - start_time)
@@ -393,7 +441,10 @@ def build_tab_growth_model_run_tests(page: Page):
 
         thread_statuses.controls[testerId].subtitle = Text(f"همه آزمون‌ها بدون خطا پاس شدند\nزمان سپری شده: {elapsed_formatted}")
         thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
     def run_testcase(e):
         nonlocal running_threads, number_of_failures, total_execution_time
@@ -419,7 +470,10 @@ def build_tab_growth_model_run_tests(page: Page):
             t.start()
             running_threads[i] = True
         
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
         while (True in running_threads):
             pass
@@ -747,40 +801,76 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     def start_tester_test(testerId):
         nonlocal number_of_failures, running_threads
 
+        model_dir = f"web/{project_name}/systemtest/test_and_estimate"
+
         number_of_self_failures = 0
 
         iteration = 1
 
         while(True):
-            for test_case in all_testcases:
+            for test_case_index, test_case in enumerate(all_testcases):
                 thread_statuses.controls[testerId].subtitle = Text(f"در حال ساخت داده آزمون برای سناریوی {test_case}")
-                page.update()
+                try:
+                    page.update()
+                except:
+                    pass
 
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
                 tester_iteration = f"{testerId + 1}-{iteration}"
                 test_case_path = all_testcases[test_case]['testcase_dir']
-                csv_path = generate_input_data(project_name, test_case, test_case_path, tester_iteration, number_of_sub_tests, False)
+                # Mock input data (Update later)
+                ########################
+                # csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, False)
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
+                csv_path = os.path.join(model_dir, csv_filename)
+                csv_path = os.path.join(current_dir, csv_path)
+                ########################
                 if not csv_path:
                     continue
 
                 df = pd.read_csv(csv_path)
                 df['result'] = ''
 
-                for idx, row in df.iterrows():
+                random_df = df.sample(
+                    n=min(number_of_sub_tests, len(df))
+                ).reset_index(drop=True)
+    
+                for idx, row in random_df.iterrows():
                     thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case}: در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
-                    page.update()
+                    try:
+                        page.update()
+                    except:
+                        pass
 
                     env = os.environ.copy()
                     env.update(row.dropna().astype(str).to_dict())
                     try:
+                        framework = detect_test_framework(test_case_path)
+                        if framework == "playwright":
+                            command = [
+                                "pytest",
+                                test_case_path,
+                                "-v",
+                                "--browser-channel", "chrome",
+                                "--slowmo", "1000",
+                                "--headed",
+                            ]
+                        else:
+                            command = ["python", test_case_path]
                         result = subprocess.run(
-                            ["python", test_case_path],
+                            command,
                             env=env,
                             capture_output=True,
-                            text=True, timeout=300
+                            text=True, 
+                            timeout=300
                         )
-                        output = result.stdout.strip().splitlines()
-                        outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
+    
+                        if framework == "playwright":
+                            outcome = "pass" if result.returncode == 0 else "fail"
+                        else:
+                            output = result.stdout.strip().splitlines()
+                            outcome = next((line.strip() for line in output if line.strip() in ("pass", "fail")), "fail")
 
                         df.at[idx, "result"] = outcome
                         df.to_csv(csv_path, index=False)
@@ -809,7 +899,10 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         running_threads[testerId] = False
         thread_statuses.controls[testerId].subtitle = Text(f"انجام آزمون با مشاهده {number_of_self_failures} خطا پایان یافت")
         thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
     def run_testcase(e):
         nonlocal running_threads, number_of_failures, total_execution_time
@@ -834,7 +927,10 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             t.start()
             running_threads[i] = True
         
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
         while (True in running_threads):
             pass
