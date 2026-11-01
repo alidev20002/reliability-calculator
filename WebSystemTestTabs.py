@@ -12,7 +12,7 @@ from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
 import Tips
-from Utils import detect_test_framework
+from Utils import detect_test_framework, replace_fill_values
 
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
@@ -219,6 +219,7 @@ def build_tab_manage_tests(page: Page):
             "testcase_dir": testcase_dir_input.value,
             "percent": int(percent_input.value),
         }
+        replace_fill_values(file_path=testcase_dir_input.value)
         save_all_testcases(all_testcases, project_name)
         percent_input.value = 0
         max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
@@ -338,11 +339,11 @@ def build_tab_growth_model_run_tests(page: Page):
 
             # Mock input data (Update later)
             ########################
-            # csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
-            csv_path = os.path.join(model_dir, csv_filename)
-            csv_path = os.path.join(current_dir, csv_path)
+            csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
+            # current_dir = os.path.dirname(os.path.abspath(__file__))
+            # csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
+            # csv_path = os.path.join(model_dir, csv_filename)
+            # csv_path = os.path.join(current_dir, csv_path)
             ########################
 
             if not csv_path:
@@ -371,7 +372,9 @@ def build_tab_growth_model_run_tests(page: Page):
                     pass
 
                 env = os.environ.copy()
-                env.update(row.dropna().astype(str).to_dict())
+                for index, value in enumerate(row, start=1):
+                    if pd.notna(value):
+                        env[f"input{index}"] = str(value)
                 try:
                     framework = detect_test_framework(test_case_path)
                     if framework == "playwright":
@@ -820,11 +823,11 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 test_case_path = all_testcases[test_case]['testcase_dir']
                 # Mock input data (Update later)
                 ########################
-                # csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, False)
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
-                csv_path = os.path.join(model_dir, csv_filename)
-                csv_path = os.path.join(current_dir, csv_path)
+                csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, False)
+                # current_dir = os.path.dirname(os.path.abspath(__file__))
+                # csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
+                # csv_path = os.path.join(model_dir, csv_filename)
+                # csv_path = os.path.join(current_dir, csv_path)
                 ########################
                 if not csv_path:
                     continue
@@ -844,7 +847,9 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                         pass
 
                     env = os.environ.copy()
-                    env.update(row.dropna().astype(str).to_dict())
+                    for index, value in enumerate(row, start=1):
+                        if pd.notna(value):
+                            env[f"input{index}"] = str(value)
                     try:
                         framework = detect_test_framework(test_case_path)
                         if framework == "playwright":
