@@ -12,7 +12,7 @@ from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
 import Tips
-from Utils import detect_test_framework, replace_fill_values
+from Utils import detect_test_framework, replace_input_values
 
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
@@ -219,7 +219,7 @@ def build_tab_manage_tests(page: Page):
             "testcase_dir": testcase_dir_input.value,
             "percent": int(percent_input.value),
         }
-        replace_fill_values(file_path=testcase_dir_input.value)
+        replace_input_values(file_path=testcase_dir_input.value)
         save_all_testcases(all_testcases, project_name)
         percent_input.value = 0
         max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())

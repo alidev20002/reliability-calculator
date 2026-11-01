@@ -1,8 +1,7 @@
 from pathlib import Path
 import ast
 
-
-def replace_fill_values(
+def replace_input_values(
     file_path: str,
     output_path: str | None = None,
 ) -> int:
@@ -13,7 +12,6 @@ def replace_fill_values(
 
     lines = source.splitlines(keepends=True)
 
-    # Calculate absolute byte offset from line/column.
     line_offsets = []
     offset = 0
 
@@ -21,56 +19,62 @@ def replace_fill_values(
         line_offsets.append(offset)
         offset += len(line)
 
-    def get_offset(lineno: int, col_offset: int) -> int:
+    def get_offset(lineno, col_offset):
         return line_offsets[lineno - 1] + col_offset
 
-    # Find all fill() calls and their first argument.
     replacements = []
 
     calls = [
         node for node in ast.walk(tree)
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "fill"
-        )
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in {"fill", "send_keys"}
     ]
 
     calls.sort(key=lambda node: (node.lineno, node.col_offset))
 
-    for index, call in enumerate(calls, start=1):
-        # Get the value argument.
-        if call.args:
-            value_node = call.args[0]
+    for call in calls:
+
+        # Determine the argument containing the input value.
+        if call.func.attr == "fill":
+            if call.args:
+                value_node = call.args[0]
+            else:
+                value_node = next(
+                    (kw.value for kw in call.keywords if kw.arg == "value"),
+                    None,
+                )
+
+        elif call.func.attr == "send_keys":
+            value_node = call.args[0] if call.args else None
+
         else:
-            value_kwarg = next(
-                (kw.value for kw in call.keywords if kw.arg == "value"),
-                None,
-            )
-            if value_kwarg is None:
-                continue
-            value_node = value_kwarg
+            continue
+
+        if value_node is None:
+            continue
+
+        input_name = f"input{len(replacements) + 1}"
 
         start = get_offset(
             value_node.lineno,
             value_node.col_offset,
         )
+
         end = get_offset(
             value_node.end_lineno,
             value_node.end_col_offset,
         )
 
-        env_name = f"input{index}"
+        replacement = (
+            f'__import__("os").environ["{input_name}"]'
+        ).encode()
 
-        replacements.append(
-            (start, end, f'__import__("os").environ["{env_name}"]'.encode())
-        )
+        replacements.append((start, end, replacement))
 
-    # Apply replacements from end to beginning.
     for start, end, replacement in reversed(replacements):
         source = source[:start] + replacement + source[end:]
 
-    # Validate generated Python code.
     ast.parse(source.decode("utf-8"))
 
     destination = Path(output_path) if output_path else path
