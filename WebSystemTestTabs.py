@@ -266,6 +266,11 @@ def build_tab_manage_tests(page: Page):
             percent_input.divisions = max_percent_value
             refresh_test_list()
             page.update()
+        elif message == "web_test_cases":
+            max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
+            percent_input.max = max_percent_value
+            percent_input.divisions = max_percent_value
+            page.update()
 
     page.pubsub.subscribe(on_message)
 
