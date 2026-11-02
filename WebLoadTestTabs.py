@@ -4,6 +4,7 @@ from flet import *
 import subprocess
 import csv
 import statistics
+import shutil
 
 PROJECT_CONFIG = 'project_config.json'
 GROWTH_RESULTS_FILE = 'results.json'
@@ -144,9 +145,16 @@ def build_tab_web_load_test(page: Page):
         results_dir = os.path.join(base_dir, f"web/{project_name}/loadtest")
         jmx_name = os.path.splitext(os.path.basename(testcase_dir_input.value))[0]
         jtl_path = os.path.join(results_dir, f"{jmx_name}.jtl")
+        report_dir = os.path.join(results_dir, f"{jmx_name}_report")
+
         if os.path.exists(jtl_path):
             os.remove(jtl_path)
-        jmeter_path = project_config['jmeter_path']
+
+        if os.path.exists(report_dir):
+            shutil.rmtree(report_dir)
+
+        jmeter_path = project_config["jmeter_path"]
+
         cmd = [
             jmeter_path,
             "-n",
@@ -156,8 +164,16 @@ def build_tab_web_load_test(page: Page):
             "-Jloop=" + loop_count.value,
             "-l", jtl_path
         ]
-        
+
         subprocess.run(cmd)
+
+        report_cmd = [
+            jmeter_path,
+            "-g", jtl_path,
+            "-o", report_dir
+        ]
+
+        subprocess.run(report_cmd)
 
         return jtl_path
 
