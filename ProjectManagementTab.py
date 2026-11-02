@@ -1,6 +1,8 @@
 from flet import *
 import json
 import os
+from pathlib import Path
+import shutil
 
 PROJECT_CONFIG = 'project_config.json'
 
@@ -48,6 +50,13 @@ def build_tab_project_management(page: Page):
     def delete_project(name):
         project_config['projects'].remove(name)
         save_project_config(project_config)
+        BASE_DIR = Path(__file__).parent
+        for folder in ("web", "desktop"):
+            project_dir = BASE_DIR / folder / name
+
+            if project_dir.exists():
+                shutil.rmtree(project_dir)
+
         user_message.value = f"پروژه '{name}' حذف شد."
         user_message.color = Colors.GREEN
         refresh_project_list()
