@@ -12,7 +12,7 @@ from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
 import Tips
-from Utils import detect_test_framework, replace_input_values
+from Utils import detect_test_framework, replace_web_input_values
 
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
@@ -219,7 +219,7 @@ def build_tab_manage_tests(page: Page):
             "testcase_dir": testcase_dir_input.value,
             "percent": int(percent_input.value),
         }
-        replace_input_values(file_path=testcase_dir_input.value)
+        replace_web_input_values(file_path=testcase_dir_input.value)
         save_all_testcases(all_testcases, project_name)
         percent_input.value = 0
         max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
@@ -329,8 +329,6 @@ def build_tab_growth_model_run_tests(page: Page):
         nonlocal number_of_failures, total_execution_time, running_threads
         start_time = time.time()
 
-        model_dir = f"web/{project_name}/systemtest/growth"
-
         for test_case_index, test_case in enumerate(all_testcases):
             number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
 
@@ -341,16 +339,7 @@ def build_tab_growth_model_run_tests(page: Page):
                 pass
 
             test_case_path = all_testcases[test_case]['testcase_dir']
-
-            # Mock input data (Update later)
-            ########################
             csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
-            # current_dir = os.path.dirname(os.path.abspath(__file__))
-            # csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
-            # csv_path = os.path.join(model_dir, csv_filename)
-            # csv_path = os.path.join(current_dir, csv_path)
-            ########################
-
             if not csv_path:
                 thread_statuses.controls[testerId].subtitle = Text(f"خطا در ساخت داده ورودی!")
                 thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
@@ -809,8 +798,6 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
     def start_tester_test(testerId):
         nonlocal number_of_failures, running_threads
 
-        model_dir = f"web/{project_name}/systemtest/test_and_estimate"
-
         number_of_self_failures = 0
 
         iteration = 1
@@ -826,14 +813,8 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
                 tester_iteration = f"{testerId + 1}-{iteration}"
                 test_case_path = all_testcases[test_case]['testcase_dir']
-                # Mock input data (Update later)
-                ########################
-                csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, False)
-                # current_dir = os.path.dirname(os.path.abspath(__file__))
-                # csv_filename = f"Test{str(test_case_index + 1)}-tester{str(testerId + 1)}.csv"
-                # csv_path = os.path.join(model_dir, csv_filename)
-                # csv_path = os.path.join(current_dir, csv_path)
-                ########################
+                csv_path = generate_input_data(project_name, test_case, test_case_path, tester_iteration, number_of_sub_tests, False)
+
                 if not csv_path:
                     continue
 

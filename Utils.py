@@ -1,7 +1,7 @@
 from pathlib import Path
 import ast
 
-def replace_input_values(
+def replace_web_input_values(
     file_path: str,
     output_path: str | None = None,
 ) -> int:
@@ -82,6 +82,94 @@ def replace_input_values(
 
     return len(replacements)
 
+
+def replace_desktop_input_values(
+    file_path: str,
+    output_path: str | None = None,
+) -> int:
+
+    path = Path(file_path)
+    source = path.read_bytes()
+
+    tree = ast.parse(source.decode("utf-8"))
+
+    lines = source.splitlines(keepends=True)
+
+    line_offsets = []
+    offset = 0
+
+    for line in lines:
+        line_offsets.append(offset)
+        offset += len(line)
+
+    def get_offset(lineno, col_offset):
+        return line_offsets[lineno - 1] + col_offset
+
+    replacements = []
+
+    calls = [
+        node for node in ast.walk(tree)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "type"
+        )
+    ]
+
+    calls.sort(key=lambda node: (node.lineno, node.col_offset))
+
+    for call in calls:
+
+        value_node = None
+
+        if len(call.args) == 1:
+            # type("admin")
+            value_node = call.args[0]
+
+        elif len(call.args) >= 2:
+            first, second = call.args[:2]
+
+            if isinstance(second, ast.Constant) and isinstance(second.value, str):
+                # type("username.png", "admin")
+                value_node = second
+
+            elif isinstance(first, ast.Constant) and isinstance(first.value, str):
+                # type("admin", Key.CTRL)
+                value_node = first
+
+        if not isinstance(value_node, ast.Constant):
+            continue
+
+        if not isinstance(value_node.value, str):
+            continue
+
+        input_name = f"input{len(replacements) + 1}"
+
+        start = get_offset(
+            value_node.lineno,
+            value_node.col_offset,
+        )
+
+        end = get_offset(
+            value_node.end_lineno,
+            value_node.end_col_offset,
+        )
+
+        replacement = (
+            f'__import__("os").environ["{input_name}"]'
+        ).encode()
+
+        replacements.append((start, end, replacement))
+
+    for start, end, replacement in reversed(replacements):
+        source = source[:start] + replacement + source[end:]
+
+    ast.parse(source.decode("utf-8"))
+
+    destination = Path(output_path) if output_path else path
+    destination.write_bytes(source)
+
+    return len(replacements)
 
 def detect_test_framework(test_case_path: str) -> str:
     """تشخیص فریم‌ورک تست از روی محتوای فایل."""

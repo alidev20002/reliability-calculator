@@ -12,6 +12,7 @@ from scipy.stats import poisson
 import requests
 from ReliabilityUtils import *
 import Tips
+from Utils import replace_desktop_input_values
 
 PROJECT_CONFIG = 'project_config.json'
 TEST_CASES_FILE = 'testcases.json'
@@ -220,6 +221,7 @@ def build_tab_manage_tests(page: Page):
             "testcase_dir": testcase_dir_input.value,
             "percent": int(percent_input.value),
         }
+        replace_desktop_input_values(file_path=testcase_dir_input.value)
         save_all_testcases(all_testcases, project_name)
         percent_input.value = 0
         max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
@@ -261,7 +263,15 @@ def build_tab_manage_tests(page: Page):
         if message == "selected_project":
             project_name = get_selected_project()
             all_testcases = load_all_testcases(project_name)
+            max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
+            percent_input.max = max_percent_value
+            percent_input.divisions = max_percent_value
             refresh_test_list()
+            page.update()
+        elif message == "desktop_test_cases":
+            max_percent_value = 100 - sum(item['percent'] for item in all_testcases.values())
+            percent_input.max = max_percent_value
+            percent_input.divisions = max_percent_value
             page.update()
 
     page.pubsub.subscribe(on_message)
@@ -325,25 +335,40 @@ def build_tab_growth_model_run_tests(page: Page):
             number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
 
             thread_statuses.controls[testerId].subtitle = Text(f"در حال ساخت داده آزمون برای سناریوی {test_case}")
-            page.update()
+            try:
+                page.update()
+            except:
+                pass
 
             test_case_path = all_testcases[test_case]['testcase_dir']
             csv_path = generate_input_data(project_name, test_case, test_case_path, str(testerId + 1), number_of_sub_tests, True)
             if not csv_path:
                 thread_statuses.controls[testerId].subtitle = Text(f"خطا در ساخت داده ورودی!")
                 thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
-                page.update()
+                try:
+                    page.update()
+                except:
+                    pass
                 return
 
             df = pd.read_csv(csv_path)
             df['result'] = ''
 
-            for idx, row in df.iterrows():
+            random_df = df.sample(
+                n=min(number_of_sub_tests, len(df))
+            ).reset_index(drop=True)
+
+            for idx, row in random_df.iterrows():
                 thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case}: در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
-                page.update()
+                try:
+                    page.update()
+                except:
+                    pass
 
                 env = os.environ.copy()
-                env.update(row.dropna().astype(str).to_dict())
+                for index, value in enumerate(row, start=1):
+                    if pd.notna(value):
+                        env[f"input{index}"] = str(value)
                 try:
                     result = subprocess.run(
                         [
@@ -387,7 +412,10 @@ def build_tab_growth_model_run_tests(page: Page):
 
                     thread_statuses.controls[testerId].subtitle = Text(f"در آزمون {idx+1}ام از سناریوی {test_case} شکست خورد\nزمان سپری شده: {elapsed_formatted}")
                     thread_statuses.controls[testerId].trailing = Icon(Icons.ERROR, color='red')
-                    page.update()
+                    try:
+                        page.update()
+                    except:
+                        pass
                     return
             
         elapsed = int(time.time() - start_time)
@@ -397,7 +425,10 @@ def build_tab_growth_model_run_tests(page: Page):
 
         thread_statuses.controls[testerId].subtitle = Text(f"همه آزمون‌ها بدون خطا پاس شدند\nزمان سپری شده: {elapsed_formatted}")
         thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
     def run_testcase(e):
         nonlocal number_of_failures, total_execution_time
@@ -420,7 +451,10 @@ def build_tab_growth_model_run_tests(page: Page):
             )
             start_tester_test(testerId=i)
         
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
         start_tests_button.disabled = False
 
@@ -432,7 +466,10 @@ def build_tab_growth_model_run_tests(page: Page):
                 bgcolor="#84c5fd"
             )
         )
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
         if total_execution_time == 0:
             return
@@ -740,11 +777,10 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
 
     number_of_failures = 0
     total_execution_time = 0
-    running_threads = []
     thread_statuses = Column(width=600, spacing=10, scroll=ScrollMode.AUTO)
 
     def start_tester_test(testerId):
-        nonlocal number_of_failures, running_threads
+        nonlocal number_of_failures
 
         number_of_self_failures = 0
 
@@ -753,7 +789,10 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
         while(True):
             for test_case in all_testcases:
                 thread_statuses.controls[testerId].subtitle = Text(f"در حال ساخت داده آزمون برای سناریوی {test_case}")
-                page.update()
+                try:
+                    page.update()
+                except:
+                    pass
 
                 number_of_sub_tests = math.ceil((int(number_of_tests.value) * all_testcases[test_case]['percent']) / 100)
                 tester_iteration = f"{testerId + 1}-{iteration}"
@@ -765,12 +804,21 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                 df = pd.read_csv(csv_path)
                 df['result'] = ''
 
-                for idx, row in df.iterrows():
+                random_df = df.sample(
+                    n=min(number_of_sub_tests, len(df))
+                ).reset_index(drop=True)
+
+                for idx, row in random_df.iterrows():
                     thread_statuses.controls[testerId].subtitle = Text(f"سناریوی {test_case}: در حال اجرای آزمون {idx+1}ام از {number_of_sub_tests} آزمون")
-                    page.update()
+                    try:
+                        page.update()
+                    except:
+                        pass
 
                     env = os.environ.copy()
-                    env.update(row.dropna().astype(str).to_dict())
+                    for index, value in enumerate(row, start=1):
+                        if pd.notna(value):
+                            env[f"input{index}"] = str(value)
                     try:
                         result = subprocess.run(
                             [
@@ -812,18 +860,19 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
             
             iteration += 1
 
-        running_threads[testerId] = False
         thread_statuses.controls[testerId].subtitle = Text(f"انجام آزمون با مشاهده {number_of_self_failures} خطا پایان یافت")
         thread_statuses.controls[testerId].trailing = Icon(name=Icons.DONE, color='Green')
-        page.update()
+        try:
+            page.update()
+        except:
+            pass
 
     def run_testcase(e):
-        nonlocal running_threads, number_of_failures, total_execution_time
+        nonlocal number_of_failures, total_execution_time
         if len(all_testcases) == 0:
             return
         
         number_of_failures = 0
-        running_threads = [False] * int(number_of_testers.value)
         thread_statuses.controls.clear()
         start_tests_button.disabled = True
 
@@ -836,13 +885,11 @@ def build_tab_test_and_estimation_model_run_tests(page: Page):
                     bgcolor="#dfdfdf"
                 )
             )
-            t = threading.Thread(target=start_tester_test, args=(i,), daemon=True)
-            t.start()
-            running_threads[i] = True
+            start_tester_test(testerId=i)
         
-        page.update()
-
-        while (True in running_threads):
+        try:
+            page.update()
+        except:
             pass
 
         start_tests_button.disabled = False
