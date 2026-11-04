@@ -190,3 +190,61 @@ def detect_test_framework(test_case_path: str) -> str:
         return "playwright"
 
     return "selenium"
+
+
+def add_desktop_stress_loop(
+    file_path: str,
+    iterations: int,
+    output_path: str | None = None,
+) -> Path:
+
+    source_path = Path(file_path).resolve()
+
+    if source_path.is_dir() and source_path.suffix.lower() == ".sikuli":
+        source_path = source_path / f"{source_path.stem}.py"
+
+    if not source_path.is_file():
+        raise FileNotFoundError(source_path)
+
+    if iterations < 1:
+        raise ValueError("iterations must be >= 1")
+
+    source = source_path.read_text(encoding="utf-8")
+
+    # Prevent adding the stress loop more than once.
+    if "# SIKULIX_STRESS_LOOP" in source:
+        return source_path
+
+    # Indent the original script.
+    indented_source = "\n".join(
+        "    " + line if line.strip() else ""
+        for line in source.splitlines()
+    )
+
+    stress_script = f'''# -*- coding: utf-8 -*-
+# SIKULIX_STRESS_LOOP
+
+import os
+
+_iterations = int(os.environ.get("SIKULIX_ITERATIONS", "{iterations}"))
+
+for _iteration in range(_iterations):
+
+    print("__ITERATION_STARTED__:%d" % (_iteration + 1))
+
+{indented_source}
+
+    print("__ITERATION_COMPLETED__:%d" % (_iteration + 1))
+
+print("__STRESS_COMPLETED__")
+'''
+
+    destination = (
+        Path(output_path).resolve()
+        if output_path
+        else source_path
+    )
+
+    destination.write_text(stress_script, encoding="utf-8")
+
+    return destination
