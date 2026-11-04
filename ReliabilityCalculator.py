@@ -3,6 +3,7 @@ from flet import *
 import WebSystemTestTabs as webSys
 import DesktopSystemTestTabs as deskSys
 import WebLoadTestTabs as webLoad
+import DesktopLoadTestTabs as deskLoad
 import ProjectManagementTab as pm
 import matplotlib
 
@@ -40,7 +41,7 @@ def main(page: Page):
     ])
 
     web_tabs = Tabs(tabs=[
-        Tab(text="آزمون سیستم (Katalon Recorder)", content=web_system_test_tabs),
+        Tab(text="آزمون سیستم (Katalon Recorder and Playwright)", content=web_system_test_tabs),
         Tab(text="آزمون بار و استرس (Apache Jmeter)", content=webLoad.build_tab_web_load_test(page)),
         Tab(text="قابلیت اطمینان", content=web_reliabiliy_tabs)
     ])
@@ -68,7 +69,8 @@ def main(page: Page):
     ])
 
     desktop_tabs = Tabs(tabs=[
-        Tab(text="تست سیستم (Sikulix)", content=desktop_system_test_tabs),
+        Tab(text="آزمون سیستم (Sikulix)", content=desktop_system_test_tabs),
+        Tab(text="آزمون بار و استرس (Sikulix)", content=deskLoad.build_tab_desktop_load_test(page)),
         Tab(text="قابلیت اطمینان", content=desktop_reliabiliy_tabs)
     ])
 
